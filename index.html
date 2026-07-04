@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>The Pantry Panel</title>
+<style>
+  :root{
+    --paper: #efe7d2;
+    --paper-dark: #e3d8bc;
+    --ink: #2b2620;
+    --ink-soft: #5a5347;
+    --avocado: #5b7553;
+    --avocado-dark: #435a3d;
+    --tomato: #c1442e;
+    --tomato-dark: #973526;
+    --mustard: #d9a441;
+    --navy: #2e3a46;
+    --line: rgba(43,38,32,0.18);
+    --card: #f8f3e6;
+    --shadow: 0 3px 0 rgba(43,38,32,0.15);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    background-image:
+      radial-gradient(rgba(43,38,32,0.035) 1px, transparent 1px);
+    background-size:14px 14px;
+    color:var(--ink);
+    font-family:"Trebuchet MS","Segoe UI",Verdana,sans-serif;
+    min-height:100vh;
+  }
+  .display{
+    font-family:Impact,"Arial Narrow",Haettenschweiler,"Franklin Gothic Bold",sans-serif;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+  }
+  .mono{ font-family:"Courier New",Courier,monospace; }
+
+  #app{ max-width:900px; margin:0 auto; padding:18px 16px 60px; }
+
+  /* ---- ticket header / stepper ---- */
+  .ticket{
+    background:var(--ink);
+    color:var(--paper);
+    border-radius:10px;
+    padding:14px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    box-shadow:var(--shadow);
+    margin-bottom:20px;
+  }
+  .ticket h1{
+    font-size:22px;
+    margin:0;
+    line-height:1.05;
+  }
+  .ticket .sub{ font-size:11px; color:var(--mustard); letter-spacing:1.5px; }
+  .steps{ display:flex; gap:6px; }
+  .steps span{
+    width:9px;height:9px;border-radius:50%;
+    background:rgba(255,255,255,0.25);
+    display:inline-block;
+  }
+  .steps span.on{ background:var(--mustard); }
+
+  /* ---- generic card ---- */
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:20px;
+    box-shadow:var(--shadow);
+    margin-bottom:16px;
+  }
+  .card h2{ margin-top:0; font-size:19px; }
+  .muted{ color:var(--ink-soft); font-size:14px; }
+
+  button{ font-family:inherit; cursor:pointer; }
+  .btn{
+    background:var(--ink);
+    color:var(--paper);
+    border:none;
+    border-radius:7px;
+    padding:11px 18px;
+    font-size:14px;
+    font-weight:bold;
+    box-shadow:var(--shadow);
+  }
+  .btn:active{ transform:translateY(2px); box-shadow:none; }
+  .btn.ghost{
+    background:transparent;
+    color:var(--ink);
+    border:2px solid var(--ink);
+    box-shadow:none;
+  }
+  .btn.tomato{ background:var(--tomato); box-shadow:0 3px 0 var(--tomato-dark); }
+  .btn.avocado{ background:var(--avocado); box-shadow:0 3px 0 var(--avocado-dark); }
+  .btn:disabled{ opacity:0.35; cursor:not-allowed; }
+  .btn.small{ padding:7px 12px; font-size:12px; border-radius:6px; }
+
+  /* ---- profile list ---- */
+  .profile-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 14px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    margin-bottom:10px;
+    background:#fbf8ef;
+  }
+  .profile-row .name{ font-weight:bold; font-size:16px; }
+  .profile-row .status{ font-size:12px; color:var(--ink-soft); }
+  .profile-row .status.done{ color:var(--avocado-dark); font-weight:bold; }
+  .profile-row .actions{ display:flex; gap:8px; }
+  .add-row{ display:flex; gap:8px; margin-top:14px; }
+  .add-row input{
+    flex:1; padding:10px 12px; border-radius:7px;
+    border:2px solid var(--line); font-size:14px; background:#fff;
+  }
+
+  /* ---- survey ---- */
+  .survey-head{
+    position:sticky; top:0; z-index:5;
+    background:var(--paper);
+    padding:10px 0 14px;
+  }
+  .progress-track{
+    height:8px; background:var(--paper-dark); border-radius:5px; overflow:hidden;
+    border:1px solid var(--line);
+  }
+  .progress-fill{ height:100%; background:var(--mustard); transition:width 0.2s; }
+  .category-block h3{
+    font-size:13px; letter-spacing:1.5px; color:var(--navy);
+    border-bottom:2px solid var(--navy);
+    padding-bottom:4px; margin:22px 0 10px;
+  }
+  .ing-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 4px; border-bottom:1px dashed var(--line);
+    gap:10px;
+  }
+  .ing-name{ font-size:14.5px; }
+  .stamp-group{ display:flex; gap:5px; flex-shrink:0; }
+  .stamp{
+    width:30px; height:30px; border-radius:50%;
+    border:2px solid var(--ink);
+    background:#fff;
+    font-size:13px; font-weight:bold;
+    display:flex; align-items:center; justify-content:center;
+    transition:transform 0.08s;
+    opacity:0.5;
+  }
+  .stamp:hover{ opacity:0.85; }
+  .stamp.active{
+    opacity:1;
+    color:#fff;
+    transform:scale(1.12);
+    box-shadow:0 2px 0 rgba(43,38,32,0.3);
+  }
+  .stamp[data-rating="1"].active{ background:var(--tomato); border-color:var(--tomato-dark); }
+  .stamp[data-rating="2"].active{ background:#d9784a; border-color:#a85a35; }
+  .stamp[data-rating="3"].active{ background:var(--mustard); border-color:#a67a2e; color:var(--ink); }
+  .stamp[data-rating="4"].active{ background:#8aa680; border-color:var(--avocado); }
+  .stamp[data-rating="5"].active{ background:var(--avocado); border-color:var(--avocado-dark); }
+  .scale-legend{ display:flex; justify-content:space-between; font-size:10.5px; color:var(--ink-soft); margin-top:4px; padding:0 2px; }
+
+  .survey-foot{
+    position:sticky; bottom:0; background:var(--paper);
+    padding:14px 0 4px; display:flex; justify-content:space-between; gap:10px;
+    border-top:1px solid var(--line); margin-top:10px;
+  }
+
+  /* ---- cuisine grid ---- */
+  .cuisine-grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+    gap:12px;
+  }
+  .cuisine-tile{
+    background:#fbf8ef; border:2px solid var(--line); border-radius:10px;
+    padding:18px 10px; text-align:center; box-shadow:var(--shadow);
+  }
+  .cuisine-tile:hover{ border-color:var(--mustard); }
+  .cuisine-tile .emoji{ font-size:30px; display:block; margin-bottom:8px; }
+  .cuisine-tile .label{ font-size:13px; font-weight:bold; letter-spacing:0.5px; }
+
+  /* ---- results ---- */
+  .recipe-grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+    gap:14px;
+  }
+  .recipe-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:16px;
+    box-shadow:var(--shadow);
+    position:relative;
+  }
+  .recipe-card::before{
+    content:"";
+    position:absolute; top:0; right:14px; width:14px; height:14px;
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+    border-left:1px solid var(--line);
+    transform:rotate(45deg) translateY(-7px);
+  }
+  .recipe-card h3{ margin:6px 0 4px; font-size:17px; }
+  .match-tag{
+    display:inline-block; font-size:11px; font-weight:bold;
+    background:var(--avocado); color:#fff; padding:2px 8px; border-radius:20px;
+    margin-bottom:8px;
+  }
+  .match-tag.warn{ background:var(--mustard); color:var(--ink); }
+  .recipe-card .ing-preview{ font-size:12.5px; color:var(--ink-soft); margin-bottom:10px; }
+  .detail-list{ list-style:none; padding:0; margin:10px 0; }
+  .detail-list li{
+    font-size:13.5px; padding:5px 8px; border-radius:5px; margin-bottom:4px;
+    display:flex; align-items:center; gap:6px;
+  }
+  .detail-list li.liked{ background:rgba(91,117,83,0.15); }
+  .detail-list li.disliked{ background:rgba(193,68,46,0.15); text-decoration:line-through; color:var(--tomato-dark); }
+  .steps-list{ padding-left:18px; font-size:13.5px; line-height:1.6; }
+  .empty-state{ text-align:center; padding:30px 10px; color:var(--ink-soft); }
+  .empty-state .big{ font-size:38px; display:block; margin-bottom:8px; }
+  .top-link{ background:none; border:none; color:var(--navy); text-decoration:underline; font-size:13px; padding:0; margin-bottom:12px; display:inline-block; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ============ DATA ============ */
+const INGREDIENT_CATEGORIES = {
+  "Vegetables": ["Onion","Garlic","Bell Pepper","Tomato","Broccoli","Cauliflower","Carrot","Zucchini","Eggplant","Spinach","Mushroom","Potato","Sweet Potato","Corn","Peas","Green Beans","Cabbage","Kale","Cucumber","Avocado"],
+  "Fruits": ["Lemon","Lime","Orange","Apple","Mango","Pineapple","Raisins","Coconut","Banana"],
+  "Meats & Seafood": ["Chicken","Beef","Pork","Bacon","Ground Beef","Shrimp","Salmon","Tuna","Sausage","Turkey","Lamb","Chorizo","Crab","Duck","Anchovy"],
+  "Herbs & Spices": ["Basil","Oregano","Thyme","Rosemary","Cilantro","Parsley","Mint","Dill","Cumin","Paprika","Chili Powder","Cinnamon","Turmeric","Ginger","Garam Masala","Curry Powder","Black Pepper","Red Pepper Flakes","Bay Leaf","Saffron"],
+  "Cheese & Dairy": ["Mozzarella","Parmesan","Cheddar","Feta","Ricotta","Cream Cheese","Yogurt","Sour Cream","Butter","Goat Cheese"],
+  "Grains & Starches": ["Rice","Pasta","Bread","Tortilla","Quinoa","Noodles","Rice Noodles","Couscous","Naan","Polenta"],
+  "Legumes & Nuts": ["Black Beans","Chickpeas","Lentils","Kidney Beans","Peanuts","Cashews","Almonds","Tofu","Edamame","Pine Nuts"],
+  "Pantry & Other": ["Soy Sauce","Coconut Milk","Olive Oil","Vinegar","Honey","Eggs"]
+};
+const ALL_INGREDIENTS = Object.values(INGREDIENT_CATEGORIES).flat();
+
+const CUISINE_META = {
+  "Italian": "🍝", "Mexican": "🌮", "Indian": "🍛", "Chinese": "🥡",
+  "American": "🍔", "Mediterranean": "🥙", "Thai": "🍜", "Japanese": "🍣",
+  "Vietnamese": "🍲", "Korean": "🍢", "French": "🥐", "Spanish": "🥘",
+  "Middle Eastern": "🧆", "Caribbean": "🍹", "Southern/BBQ": "🍖", "German": "🥨"
+};
+
+const RECIPES = [
+  // ITALIAN
+  {name:"Margherita Flatbread", cuisine:"Italian", ingredients:["Bread","Tomato","Mozzarella","Basil","Olive Oil","Garlic"],
+    steps:["Brush flatbread with olive oil and rub with garlic.","Layer sliced tomato and mozzarella on top.","Bake at 450°F until cheese bubbles, about 8 minutes.","Scatter fresh basil over the top before serving."]},
+  {name:"Spaghetti Aglio e Olio", cuisine:"Italian", ingredients:["Pasta","Garlic","Olive Oil","Red Pepper Flakes","Parsley","Parmesan"],
+    steps:["Boil pasta until al dente, reserving a cup of water.","Gently fry sliced garlic and red pepper flakes in olive oil.","Toss the drained pasta into the pan with a splash of pasta water.","Finish with parsley and grated parmesan."]},
+  {name:"Chicken Parmesan", cuisine:"Italian", ingredients:["Chicken","Bread","Parmesan","Mozzarella","Tomato","Basil","Oregano"],
+    steps:["Pound chicken thin and coat in breadcrumbs and parmesan.","Pan-fry until golden on both sides.","Top with tomato sauce and mozzarella, then broil until melted.","Finish with fresh basil and a pinch of oregano."]},
+  {name:"Mushroom Risotto", cuisine:"Italian", ingredients:["Rice","Mushroom","Parmesan","Butter","Garlic","Onion"],
+    steps:["Sauté onion and garlic in butter until soft.","Add rice and toast for a minute, then add sliced mushrooms.","Stir in warm stock a ladle at a time until creamy.","Finish with butter and grated parmesan."]},
+  {name:"Shrimp Scampi", cuisine:"Italian", ingredients:["Shrimp","Garlic","Butter","Lemon","Parsley","Pasta"],
+    steps:["Cook pasta until al dente.","Sauté shrimp and garlic in butter until pink.","Add lemon juice and toss with the pasta.","Garnish with fresh parsley."]},
+  {name:"Beef Bolognese", cuisine:"Italian", ingredients:["Ground Beef","Tomato","Onion","Carrot","Garlic","Pasta","Parmesan"],
+    steps:["Brown ground beef with onion, carrot, and garlic.","Add tomato and simmer for 30–40 minutes.","Cook pasta and toss with the sauce.","Top with grated parmesan."]},
+  {name:"Caprese Salad", cuisine:"Italian", ingredients:["Tomato","Mozzarella","Basil","Olive Oil"],
+    steps:["Slice tomato and mozzarella into rounds.","Layer alternating slices on a plate.","Tuck basil leaves between the layers.","Drizzle with olive oil and season to taste."]},
+  {name:"Basil Pesto Pasta", cuisine:"Italian", ingredients:["Pasta","Basil","Parmesan","Pine Nuts","Garlic","Olive Oil"],
+    steps:["Blend basil, pine nuts, garlic, parmesan, and olive oil into a pesto.","Cook pasta until al dente.","Toss the hot pasta with the pesto.","Serve with extra parmesan on top."]},
+  {name:"Minestrone Soup", cuisine:"Italian", ingredients:["Kidney Beans","Carrot","Zucchini","Tomato","Pasta","Parmesan"],
+    steps:["Sauté carrot and zucchini until softened.","Add tomato, kidney beans, and stock, then simmer.","Stir in small pasta and cook until tender.","Serve topped with grated parmesan."]},
+  {name:"Baked Ziti", cuisine:"Italian", ingredients:["Pasta","Ricotta","Mozzarella","Tomato","Ground Beef","Basil"],
+    steps:["Cook pasta and mix with tomato sauce and browned ground beef.","Fold in dollops of ricotta.","Top with mozzarella and bake until bubbly.","Finish with torn basil."]},
+
+  {name:"Chicken Piccata", cuisine:"Italian", ingredients:["Chicken","Lemon","Butter","Garlic","Parsley","Pasta"],
+    steps:["Pound chicken thin and pan-sear until golden.","Deglaze the pan with lemon juice and garlic.","Swirl in butter to build a light sauce.","Spoon over pasta and top with parsley."]},
+  {name:"Eggplant Parmesan", cuisine:"Italian", ingredients:["Eggplant","Tomato","Mozzarella","Parmesan","Basil","Bread"],
+    steps:["Bread and fry sliced eggplant until golden.","Layer eggplant with tomato sauce and mozzarella in a dish.","Repeat layers, topping with parmesan.","Bake until bubbly and finish with fresh basil."]},
+  {name:"Sausage & Peppers", cuisine:"Italian", ingredients:["Sausage","Bell Pepper","Onion","Garlic","Bread"],
+    steps:["Brown sausage in a skillet, then set aside.","Sauté bell pepper, onion, and garlic until soft.","Return sausage to the pan and warm through.","Pile onto bread to serve."]},
+  {name:"Tuscan Bean & Kale Soup", cuisine:"Italian", ingredients:["Kidney Beans","Kale","Garlic","Onion","Parmesan"],
+    steps:["Sauté onion and garlic until fragrant.","Add kidney beans and stock, then simmer.","Stir in kale until wilted.","Serve topped with grated parmesan."]},
+  {name:"Lemon Ricotta Pasta", cuisine:"Italian", ingredients:["Pasta","Ricotta","Lemon","Parmesan","Black Pepper"],
+    steps:["Cook pasta until al dente, reserving some pasta water.","Whisk ricotta with lemon zest, juice, and a splash of pasta water.","Toss the pasta in the ricotta sauce.","Finish with parmesan and cracked black pepper."]},
+  {name:"Chicken Marsala-Style", cuisine:"Italian", ingredients:["Chicken","Mushroom","Butter","Garlic","Parsley"],
+    steps:["Sear chicken cutlets until golden, then set aside.","Sauté mushroom and garlic in the same pan.","Swirl in butter to make a glossy sauce.","Return chicken to the pan and top with parsley."]},
+  {name:"Zucchini Parmesan Pasta", cuisine:"Italian", ingredients:["Pasta","Zucchini","Parmesan","Garlic","Olive Oil","Basil"],
+    steps:["Cook pasta until al dente.","Sauté zucchini and garlic in olive oil until tender.","Toss with the pasta and a generous handful of parmesan.","Finish with fresh basil."]},
+  {name:"Italian Sausage Ragu", cuisine:"Italian", ingredients:["Sausage","Tomato","Onion","Garlic","Pasta","Parmesan"],
+    steps:["Brown sausage with onion and garlic.","Add tomato and simmer into a rich ragu.","Cook pasta and toss with the sauce.","Top with grated parmesan."]},
+  {name:"Rosemary Bacon-Wrapped Chicken", cuisine:"Italian", ingredients:["Chicken","Bacon","Rosemary","Garlic"],
+    steps:["Season chicken with garlic and rosemary.","Wrap tightly in bacon.","Sear, then finish in the oven until cooked through.","Rest briefly before slicing."]},
+  {name:"Tomato Basil Soup", cuisine:"Italian", ingredients:["Tomato","Basil","Garlic","Onion","Parmesan"],
+    steps:["Sauté onion and garlic until soft.","Add tomato and simmer for 20 minutes.","Blend until smooth.","Stir in basil and serve with grated parmesan."]},
+  {name:"Broccoli & Sausage Pasta", cuisine:"Italian", ingredients:["Broccoli","Sausage","Garlic","Pasta","Red Pepper Flakes"],
+    steps:["Brown sausage with garlic and red pepper flakes.","Steam or blanch broccoli until tender.","Cook pasta until al dente.","Toss everything together with a splash of pasta water."]},
+  {name:"Stuffed Shells", cuisine:"Italian", ingredients:["Pasta","Ricotta","Mozzarella","Tomato","Basil"],
+    steps:["Boil jumbo pasta shells until just tender.","Fill each shell with a ricotta and mozzarella mixture.","Arrange in a baking dish with tomato sauce.","Bake until bubbly and top with fresh basil."]},
+  {name:"Chicken Cacciatore", cuisine:"Italian", ingredients:["Chicken","Tomato","Bell Pepper","Mushroom","Onion","Garlic"],
+    steps:["Brown chicken pieces, then set aside.","Sauté onion, garlic, bell pepper, and mushroom.","Add tomato and return the chicken to the pan.","Simmer until the chicken is cooked through."]},
+  {name:"Garlic Tomato Bruschetta", cuisine:"Italian", ingredients:["Bread","Tomato","Garlic","Basil","Olive Oil"],
+    steps:["Toast slices of bread until crisp.","Rub each slice with a cut garlic clove.","Top with diced tomato and torn basil.","Finish with a drizzle of olive oil."]},
+  {name:"Lemon Garlic Shrimp Risotto", cuisine:"Italian", ingredients:["Rice","Shrimp","Lemon","Garlic","Parmesan","Butter"],
+    steps:["Sauté garlic in butter, then add rice and toast briefly.","Stir in warm stock a ladle at a time until creamy.","Add shrimp in the last few minutes of cooking.","Finish with lemon juice and grated parmesan."]},
+
+  // MEXICAN
+  {name:"Chicken Tacos", cuisine:"Mexican", ingredients:["Chicken","Tortilla","Cilantro","Lime","Onion","Avocado"],
+    steps:["Season and cook chicken until browned through.","Warm the tortillas.","Fill with chicken, diced onion, and cilantro.","Top with avocado and a squeeze of lime."]},
+  {name:"Beef Tacos", cuisine:"Mexican", ingredients:["Ground Beef","Tortilla","Cheddar","Onion","Cilantro","Lime"],
+    steps:["Brown ground beef with diced onion and seasoning.","Warm the tortillas.","Fill with beef and shredded cheddar.","Top with cilantro and a squeeze of lime."]},
+  {name:"Classic Guacamole", cuisine:"Mexican", ingredients:["Avocado","Lime","Cilantro","Onion","Tomato"],
+    steps:["Mash ripe avocado in a bowl.","Fold in diced onion, tomato, and cilantro.","Season with lime juice and salt.","Serve fresh with tortilla chips."]},
+  {name:"Chicken Enchiladas", cuisine:"Mexican", ingredients:["Chicken","Tortilla","Cheddar","Sour Cream","Chili Powder","Cumin"],
+    steps:["Shred cooked chicken and season with chili powder and cumin.","Roll into tortillas and place seam-down in a baking dish.","Top with sauce and shredded cheddar.","Bake until bubbly, then serve with sour cream."]},
+  {name:"Shrimp Fajitas", cuisine:"Mexican", ingredients:["Shrimp","Bell Pepper","Onion","Tortilla","Lime","Cumin"],
+    steps:["Sauté shrimp with sliced bell pepper and onion.","Season with cumin and a squeeze of lime.","Warm the tortillas.","Serve the shrimp mixture wrapped in tortillas."]},
+  {name:"Black Bean Burrito", cuisine:"Mexican", ingredients:["Black Beans","Rice","Cheddar","Tortilla","Sour Cream","Cilantro"],
+    steps:["Warm black beans and rice separately.","Layer beans, rice, and cheddar on a tortilla.","Add sour cream and cilantro.","Roll tightly into a burrito."]},
+  {name:"Carne Asada", cuisine:"Mexican", ingredients:["Beef","Lime","Garlic","Cilantro","Chili Powder"],
+    steps:["Marinate beef in lime juice, garlic, and chili powder.","Grill over high heat to desired doneness.","Rest for five minutes, then slice thin.","Garnish with cilantro."]},
+  {name:"Chorizo Tacos", cuisine:"Mexican", ingredients:["Chorizo","Tortilla","Onion","Cilantro","Lime"],
+    steps:["Cook chorizo until crisp, breaking it into small pieces.","Warm the tortillas.","Fill with chorizo, diced onion, and cilantro.","Finish with a squeeze of lime."]},
+  {name:"Chicken Quesadilla", cuisine:"Mexican", ingredients:["Chicken","Tortilla","Cheddar","Bell Pepper","Onion"],
+    steps:["Sauté chicken with bell pepper and onion.","Layer with cheddar between two tortillas.","Cook in a dry skillet until golden and melted.","Slice into wedges."]},
+  {name:"Mexican Street Corn", cuisine:"Mexican", ingredients:["Corn","Sour Cream","Chili Powder","Lime","Cilantro"],
+    steps:["Grill corn until lightly charred.","Brush with sour cream.","Dust with chili powder and a squeeze of lime.","Finish with chopped cilantro."]},
+
+  {name:"Pork Carnitas", cuisine:"Mexican", ingredients:["Pork","Lime","Cumin","Garlic","Tortilla","Cilantro"],
+    steps:["Slow-cook pork with garlic and cumin until fall-apart tender.","Shred the meat and crisp it under a broiler.","Warm the tortillas.","Fill with pork, cilantro, and a squeeze of lime."]},
+  {name:"Chicken Tortilla Soup", cuisine:"Mexican", ingredients:["Chicken","Tomato","Corn","Tortilla","Cilantro","Lime"],
+    steps:["Simmer chicken in a tomato-based broth until cooked through.","Shred the chicken and return it to the pot with corn.","Ladle into bowls over crumbled tortilla.","Finish with cilantro and lime."]},
+  {name:"Beef Enchiladas", cuisine:"Mexican", ingredients:["Ground Beef","Tortilla","Cheddar","Sour Cream","Chili Powder","Cumin"],
+    steps:["Brown ground beef with chili powder and cumin.","Roll into tortillas and place in a baking dish.","Top with sauce and shredded cheddar.","Bake until bubbly and serve with sour cream."]},
+  {name:"Shrimp Ceviche", cuisine:"Mexican", ingredients:["Shrimp","Lime","Cilantro","Onion","Tomato"],
+    steps:["Poach shrimp briefly, then chop.","Toss with lime juice and let it marinate.","Fold in diced onion and tomato.","Finish with fresh cilantro."]},
+  {name:"Bean & Cheese Tostadas", cuisine:"Mexican", ingredients:["Black Beans","Tortilla","Cheddar","Sour Cream","Cilantro"],
+    steps:["Crisp tortillas in the oven until firm.","Spread with warmed, mashed black beans.","Top with shredded cheddar and melt briefly.","Finish with sour cream and cilantro."]},
+  {name:"Cheesy Pepper Skillet", cuisine:"Mexican", ingredients:["Bell Pepper","Cheddar","Tomato","Cumin"],
+    steps:["Sauté bell pepper until softened.","Add tomato and cumin, simmering briefly.","Top with shredded cheddar.","Cover until the cheese melts."]},
+  {name:"Chicken Fajita Bowl", cuisine:"Mexican", ingredients:["Chicken","Bell Pepper","Onion","Rice","Lime","Cumin"],
+    steps:["Sauté chicken with bell pepper and onion, seasoned with cumin.","Cook rice separately.","Build bowls with rice topped by the chicken mixture.","Finish with a squeeze of lime."]},
+  {name:"Shrimp Tacos", cuisine:"Mexican", ingredients:["Shrimp","Tortilla","Cabbage","Lime","Sour Cream","Cilantro"],
+    steps:["Season and sear shrimp until pink.","Warm the tortillas.","Fill with shrimp and shredded cabbage.","Top with sour cream, cilantro, and lime."]},
+  {name:"Carne Asada Burrito", cuisine:"Mexican", ingredients:["Beef","Rice","Black Beans","Tortilla","Cheddar","Cilantro"],
+    steps:["Grill seasoned beef and slice thin.","Warm rice and black beans.","Layer beef, rice, beans, and cheddar on a tortilla.","Roll tightly and top with cilantro."]},
+  {name:"Chorizo & Potato Hash", cuisine:"Mexican", ingredients:["Chorizo","Potato","Onion","Cilantro"],
+    steps:["Cook diced potato until golden and tender.","Add chorizo and onion, cooking until crisp.","Combine everything in the pan.","Finish with fresh cilantro."]},
+  {name:"Turkey Taco Salad", cuisine:"Mexican", ingredients:["Turkey","Cheddar","Tomato","Avocado","Lime","Cumin"],
+    steps:["Brown ground turkey with cumin.","Arrange greens with tomato and avocado.","Top with the seasoned turkey and shredded cheddar.","Finish with a squeeze of lime."]},
+  {name:"Vegetarian Quesadilla", cuisine:"Mexican", ingredients:["Bell Pepper","Onion","Cheddar","Tortilla","Sour Cream"],
+    steps:["Sauté bell pepper and onion until soft.","Layer with cheddar between two tortillas.","Cook in a dry skillet until golden and melted.","Slice into wedges and serve with sour cream."]},
+  {name:"Chicken Mole-Style Skillet", cuisine:"Mexican", ingredients:["Chicken","Chili Powder","Cinnamon","Tomato","Onion"],
+    steps:["Sauté onion until soft.","Add chili powder and a pinch of cinnamon.","Stir in tomato and simmer into a sauce.","Add chicken and cook through, coating in the sauce."]},
+  {name:"Shrimp & Corn Tacos", cuisine:"Mexican", ingredients:["Shrimp","Corn","Tortilla","Lime","Cilantro","Cabbage"],
+    steps:["Sear shrimp with charred corn.","Warm the tortillas.","Fill with the shrimp and corn mixture and shredded cabbage.","Finish with cilantro and lime."]},
+  {name:"Chorizo & Egg Breakfast Tacos", cuisine:"Mexican", ingredients:["Chorizo","Eggs","Tortilla","Cheddar","Cilantro"],
+    steps:["Cook chorizo until crisp.","Scramble in the eggs until just set.","Warm the tortillas.","Fill with the mixture, cheddar, and cilantro."]},
+
+  // INDIAN
+  {name:"Butter Chicken", cuisine:"Indian", ingredients:["Chicken","Butter","Tomato","Yogurt","Garam Masala","Ginger","Naan"],
+    steps:["Marinate chicken in yogurt, ginger, and garam masala.","Sear the chicken, then set aside.","Simmer tomato and butter into a sauce and return the chicken to the pan.","Serve hot with naan."]},
+  {name:"Chana Masala", cuisine:"Indian", ingredients:["Chickpeas","Tomato","Onion","Cumin","Turmeric","Ginger","Naan"],
+    steps:["Sauté onion and ginger with cumin and turmeric.","Add tomato and simmer into a thick base.","Stir in chickpeas and cook until warmed through.","Serve with naan."]},
+  {name:"Lentil Dal", cuisine:"Indian", ingredients:["Lentils","Turmeric","Cumin","Garlic","Ginger","Rice"],
+    steps:["Simmer lentils with turmeric until soft.","Fry garlic, ginger, and cumin in oil for a fragrant tempering.","Stir the tempering into the lentils.","Serve over rice."]},
+  {name:"Chicken Tikka", cuisine:"Indian", ingredients:["Chicken","Yogurt","Garam Masala","Lemon","Ginger","Naan"],
+    steps:["Marinate chicken pieces in yogurt, garam masala, ginger, and lemon.","Skewer and grill or broil until charred at the edges.","Rest briefly before serving.","Serve with warm naan."]},
+  {name:"Spinach & Cream Cheese Curry", cuisine:"Indian", ingredients:["Spinach","Cream Cheese","Garlic","Ginger","Turmeric","Naan"],
+    steps:["Cook spinach down with garlic and ginger.","Blend until smooth with turmeric.","Stir in cream cheese until melted and creamy.","Serve with naan."]},
+  {name:"Coconut Shrimp Curry", cuisine:"Indian", ingredients:["Shrimp","Coconut Milk","Turmeric","Curry Powder","Cilantro","Rice"],
+    steps:["Simmer coconut milk with turmeric and curry powder.","Add shrimp and cook until just pink.","Finish with fresh cilantro.","Serve over rice."]},
+  {name:"Vegetable Korma", cuisine:"Indian", ingredients:["Carrot","Peas","Potato","Coconut Milk","Curry Powder","Rice"],
+    steps:["Sauté carrot and potato until slightly softened.","Add curry powder and coconut milk, then simmer until tender.","Stir in peas at the end.","Serve over rice."]},
+  {name:"Lamb Curry", cuisine:"Indian", ingredients:["Lamb","Onion","Garam Masala","Yogurt","Ginger","Rice"],
+    steps:["Brown lamb pieces with onion and ginger.","Stir in garam masala and a spoonful of yogurt.","Simmer low and slow until tender.","Serve over rice."]},
+  {name:"Aloo Gobi", cuisine:"Indian", ingredients:["Potato","Cauliflower","Turmeric","Cumin","Ginger","Garlic"],
+    steps:["Fry cumin seeds and ginger-garlic in oil.","Add potato and cauliflower with turmeric.","Cover and cook until vegetables are tender.","Season to taste before serving."]},
+  {name:"Tandoori Shrimp", cuisine:"Indian", ingredients:["Shrimp","Yogurt","Garam Masala","Lemon","Ginger","Naan"],
+    steps:["Marinate shrimp in yogurt, garam masala, ginger, and lemon.","Grill or broil until just cooked through.","Squeeze extra lemon over the top.","Serve with naan."]},
+
+  {name:"Chickpea & Spinach Curry", cuisine:"Indian", ingredients:["Chickpeas","Spinach","Turmeric","Cumin","Ginger","Garlic"],
+    steps:["Sauté ginger and garlic with cumin and turmeric.","Add chickpeas and a splash of water, then simmer.","Stir in spinach until wilted.","Serve hot."]},
+  {name:"Egg Curry", cuisine:"Indian", ingredients:["Eggs","Tomato","Onion","Garam Masala","Turmeric","Rice"],
+    steps:["Hard-boil eggs and set aside.","Simmer onion and tomato with garam masala and turmeric into a sauce.","Add the eggs and warm through.","Serve over rice."]},
+  {name:"Vegetable Biryani", cuisine:"Indian", ingredients:["Rice","Peas","Carrot","Cauliflower","Garam Masala","Saffron"],
+    steps:["Parboil rice with a pinch of saffron.","Sauté carrot and cauliflower with garam masala.","Layer the vegetables and rice in a pot.","Cover and steam until fully cooked, then fold in peas."]},
+  {name:"Chicken Korma", cuisine:"Indian", ingredients:["Chicken","Yogurt","Coconut Milk","Garam Masala","Cashews","Rice"],
+    steps:["Marinate chicken in yogurt and garam masala.","Simmer with coconut milk until tender.","Stir in ground cashews to thicken the sauce.","Serve over rice."]},
+  {name:"Lamb Kebabs", cuisine:"Indian", ingredients:["Lamb","Cumin","Ginger","Garlic","Yogurt","Naan"],
+    steps:["Mix ground lamb with cumin, ginger, and garlic.","Shape onto skewers.","Grill until browned and cooked through.","Serve with naan and a yogurt sauce."]},
+  {name:"Spinach & Goat Cheese Curry", cuisine:"Indian", ingredients:["Spinach","Goat Cheese","Garlic","Ginger","Turmeric"],
+    steps:["Cook spinach down with garlic, ginger, and turmeric.","Blend until smooth.","Warm through and crumble in goat cheese.","Stir gently until just melted."]},
+  {name:"Shrimp Biryani", cuisine:"Indian", ingredients:["Rice","Shrimp","Saffron","Garam Masala","Onion","Cilantro"],
+    steps:["Parboil rice with a pinch of saffron.","Sauté onion until golden, then add shrimp and garam masala.","Layer the shrimp mixture with the rice.","Cover and steam briefly, then top with cilantro."]},
+  {name:"Masala Grilled Salmon", cuisine:"Indian", ingredients:["Salmon","Yogurt","Garam Masala","Lemon","Ginger"],
+    steps:["Marinate salmon in yogurt, garam masala, ginger, and lemon.","Grill or broil until just cooked through.","Rest briefly.","Serve with extra lemon."]},
+  {name:"Chickpea Curry with Rice", cuisine:"Indian", ingredients:["Chickpeas","Turmeric","Cumin","Tomato","Rice"],
+    steps:["Sauté cumin and turmeric in oil until fragrant.","Add tomato and simmer into a sauce.","Stir in chickpeas and warm through.","Serve over rice."]},
+  {name:"Spiced Cauliflower Curry", cuisine:"Indian", ingredients:["Cauliflower","Turmeric","Cumin","Ginger","Garlic","Rice"],
+    steps:["Fry cumin, ginger, and garlic in oil.","Add cauliflower and turmeric, tossing to coat.","Cover and cook until tender.","Serve over rice."]},
+  {name:"Chicken Vindaloo", cuisine:"Indian", ingredients:["Chicken","Vinegar","Chili Powder","Garlic","Ginger","Cumin"],
+    steps:["Marinate chicken in vinegar, chili powder, garlic, and ginger.","Sear until browned.","Add a splash of water and simmer until tender.","Finish with a pinch of cumin."]},
+  {name:"Mango Chutney Chicken", cuisine:"Indian", ingredients:["Chicken","Mango","Ginger","Curry Powder","Rice"],
+    steps:["Sauté chicken with ginger and curry powder.","Add chopped mango and simmer until softened.","Cook until the chicken is tender and glazed.","Serve over rice."]},
+  {name:"Lentil & Spinach Dal", cuisine:"Indian", ingredients:["Lentils","Spinach","Turmeric","Cumin","Garlic"],
+    steps:["Simmer lentils with turmeric until soft.","Fry garlic and cumin for a fragrant tempering.","Stir the tempering into the lentils.","Fold in spinach until wilted."]},
+  {name:"Coconut Lentil Soup", cuisine:"Indian", ingredients:["Lentils","Coconut Milk","Turmeric","Cumin","Cilantro"],
+    steps:["Simmer lentils with turmeric and cumin until soft.","Stir in coconut milk.","Blend partially for a creamy texture, if desired.","Finish with fresh cilantro."]},
+  {name:"Chickpea & Yogurt Naan Wrap", cuisine:"Indian", ingredients:["Chickpeas","Cumin","Cilantro","Yogurt","Naan"],
+    steps:["Warm chickpeas with cumin.","Mash lightly and mix with a spoonful of yogurt.","Spread onto warm naan.","Top with fresh cilantro and fold to wrap."]},
+
+  // CHINESE
+  {name:"Kung Pao Chicken", cuisine:"Chinese", ingredients:["Chicken","Peanuts","Bell Pepper","Soy Sauce","Ginger","Garlic","Red Pepper Flakes","Rice"],
+    steps:["Stir-fry chicken until browned.","Add bell pepper, garlic, ginger, and red pepper flakes.","Toss with soy sauce and peanuts.","Serve over rice."]},
+  {name:"Beef & Broccoli", cuisine:"Chinese", ingredients:["Beef","Broccoli","Soy Sauce","Garlic","Ginger","Rice"],
+    steps:["Sear sliced beef quickly over high heat.","Add broccoli, garlic, and ginger, and stir-fry until crisp-tender.","Toss with soy sauce.","Serve over rice."]},
+  {name:"Shrimp Fried Rice", cuisine:"Chinese", ingredients:["Shrimp","Rice","Peas","Eggs","Soy Sauce"],
+    steps:["Scramble eggs and set aside.","Stir-fry shrimp until pink, then add rice and peas.","Return the eggs to the pan.","Season with soy sauce and toss well."]},
+  {name:"Vegetable Lo Mein", cuisine:"Chinese", ingredients:["Noodles","Cabbage","Carrot","Bell Pepper","Soy Sauce","Garlic"],
+    steps:["Boil noodles until just tender.","Stir-fry cabbage, carrot, bell pepper, and garlic.","Add the noodles to the pan.","Toss everything with soy sauce."]},
+  {name:"Mapo Tofu", cuisine:"Chinese", ingredients:["Tofu","Ground Beef","Soy Sauce","Ginger","Garlic","Red Pepper Flakes","Rice"],
+    steps:["Brown ground beef with garlic, ginger, and red pepper flakes.","Add cubed tofu and soy sauce.","Simmer gently so the tofu stays intact.","Serve over rice."]},
+  {name:"Sweet & Sour Pork", cuisine:"Chinese", ingredients:["Pork","Bell Pepper","Pineapple","Soy Sauce","Vinegar","Rice"],
+    steps:["Brown pork pieces until cooked through.","Add bell pepper and pineapple chunks.","Simmer with soy sauce and vinegar until glossy.","Serve over rice."]},
+  {name:"Egg Drop Soup", cuisine:"Chinese", ingredients:["Eggs","Soy Sauce","Ginger","Peas"],
+    steps:["Bring a light broth with ginger to a simmer.","Season with soy sauce.","Slowly drizzle in beaten eggs while stirring.","Stir in peas just before serving."]},
+  {name:"Pork Dumplings", cuisine:"Chinese", ingredients:["Pork","Cabbage","Garlic","Ginger","Soy Sauce"],
+    steps:["Mix ground pork with finely chopped cabbage, garlic, and ginger.","Fold into dumpling wrappers.","Steam or pan-fry until cooked through.","Serve with a soy dipping sauce."]},
+  {name:"Hot & Sour Soup", cuisine:"Chinese", ingredients:["Tofu","Mushroom","Vinegar","Soy Sauce","Eggs","Black Pepper"],
+    steps:["Simmer mushroom and tofu in broth.","Season with soy sauce, vinegar, and black pepper.","Drizzle in beaten eggs while stirring gently.","Serve hot."]},
+  {name:"General Tso's Chicken", cuisine:"Chinese", ingredients:["Chicken","Soy Sauce","Honey","Ginger","Garlic","Red Pepper Flakes","Rice"],
+    steps:["Fry chicken pieces until crisp.","Simmer soy sauce, honey, ginger, garlic, and red pepper flakes into a glaze.","Toss the chicken in the glaze.","Serve over rice."]},
+
+  {name:"Orange Chicken", cuisine:"Chinese", ingredients:["Chicken","Orange","Soy Sauce","Garlic","Ginger","Rice"],
+    steps:["Fry chicken pieces until crisp.","Simmer orange juice, soy sauce, garlic, and ginger into a glaze.","Toss the chicken in the glaze.","Serve over rice."]},
+  {name:"Beef Chow Mein", cuisine:"Chinese", ingredients:["Noodles","Beef","Cabbage","Carrot","Soy Sauce"],
+    steps:["Stir-fry beef until browned.","Add cabbage and carrot, cooking until crisp-tender.","Toss in cooked noodles.","Season with soy sauce and toss well."]},
+  {name:"Shrimp & Green Bean Stir Fry", cuisine:"Chinese", ingredients:["Shrimp","Green Beans","Garlic","Soy Sauce","Rice"],
+    steps:["Stir-fry shrimp until just pink.","Add green beans and garlic, cooking until tender-crisp.","Toss with soy sauce.","Serve over rice."]},
+  {name:"Chicken & Cashew Stir Fry", cuisine:"Chinese", ingredients:["Chicken","Cashews","Bell Pepper","Soy Sauce","Ginger","Rice"],
+    steps:["Stir-fry chicken with ginger until browned.","Add bell pepper and cook until tender-crisp.","Toss in cashews and soy sauce.","Serve over rice."]},
+  {name:"Tofu & Broccoli Stir Fry", cuisine:"Chinese", ingredients:["Tofu","Broccoli","Carrot","Soy Sauce","Garlic","Rice"],
+    steps:["Pan-fry tofu cubes until golden.","Stir-fry broccoli, carrot, and garlic.","Return the tofu to the pan.","Toss with soy sauce and serve over rice."]},
+  {name:"Honey Garlic Pork", cuisine:"Chinese", ingredients:["Pork","Honey","Soy Sauce","Garlic","Ginger","Rice"],
+    steps:["Sear pork pieces until browned.","Simmer honey, soy sauce, garlic, and ginger into a glaze.","Toss the pork in the glaze until sticky.","Serve over rice."]},
+  {name:"Mushroom Wonton Soup", cuisine:"Chinese", ingredients:["Pork","Cabbage","Ginger","Soy Sauce","Mushroom"],
+    steps:["Mix ground pork with finely chopped cabbage and ginger for the filling.","Fold into wonton wrappers.","Simmer a light broth with mushroom and soy sauce.","Add the wontons and cook until they float."]},
+  {name:"Peanut Noodles", cuisine:"Chinese", ingredients:["Noodles","Peanuts","Soy Sauce","Garlic","Cucumber"],
+    steps:["Cook noodles until tender.","Whisk together soy sauce, garlic, and crushed peanuts for the sauce.","Toss the noodles in the sauce.","Top with sliced cucumber."]},
+  {name:"Chinese Chicken & Cabbage Salad", cuisine:"Chinese", ingredients:["Chicken","Cabbage","Carrot","Peanuts","Soy Sauce"],
+    steps:["Cook and shred the chicken.","Toss with shredded cabbage and carrot.","Dress with a soy-based vinaigrette.","Top with crushed peanuts."]},
+  {name:"Beef & Mushroom Stir Fry", cuisine:"Chinese", ingredients:["Beef","Mushroom","Garlic","Soy Sauce","Rice"],
+    steps:["Sear beef quickly over high heat.","Add mushroom and garlic, cooking until softened.","Toss with soy sauce.","Serve over rice."]},
+  {name:"Crab Fried Rice", cuisine:"Chinese", ingredients:["Crab","Rice","Peas","Eggs","Soy Sauce"],
+    steps:["Scramble eggs and set aside.","Stir-fry rice and peas in a hot pan.","Fold in crab meat and the scrambled eggs.","Season with soy sauce."]},
+  {name:"Szechuan Green Beans", cuisine:"Chinese", ingredients:["Green Beans","Garlic","Ginger","Red Pepper Flakes","Soy Sauce"],
+    steps:["Blister green beans in a hot, dry pan.","Add garlic, ginger, and red pepper flakes.","Toss with soy sauce.","Serve immediately."]},
+  {name:"Chicken Egg Foo Young", cuisine:"Chinese", ingredients:["Eggs","Chicken","Cabbage","Soy Sauce","Mushroom"],
+    steps:["Mix beaten eggs with shredded chicken, cabbage, and mushroom.","Pan-fry spoonfuls until set into patties.","Flip and cook the other side.","Serve drizzled with soy sauce."]},
+  {name:"Ginger Steamed Salmon", cuisine:"Chinese", ingredients:["Salmon","Ginger","Soy Sauce","Cilantro"],
+    steps:["Top salmon fillets with slivered ginger.","Steam until just cooked through.","Drizzle with warm soy sauce.","Garnish with cilantro."]},
+  {name:"Duck Stir Fry", cuisine:"Chinese", ingredients:["Duck","Bell Pepper","Onion","Soy Sauce","Ginger","Rice"],
+    steps:["Sear duck pieces until browned and rendered.","Add bell pepper, onion, and ginger.","Toss with soy sauce.","Serve over rice."]},
+
+  // AMERICAN
+  {name:"Classic Cheeseburger", cuisine:"American", ingredients:["Ground Beef","Cheddar","Bread","Tomato","Onion"],
+    steps:["Form ground beef into patties and season well.","Grill or pan-sear to desired doneness.","Melt cheddar over the patty in the last minute.","Build the burger with bread, tomato, and onion."]},
+  {name:"BBQ Pulled Pork Sandwich", cuisine:"American", ingredients:["Pork","Bread","Vinegar","Honey","Chili Powder"],
+    steps:["Season pork and slow-cook until it shreds easily.","Shred the meat and toss with vinegar, honey, and chili powder.","Pile onto bread.","Serve warm."]},
+  {name:"Macaroni & Cheese", cuisine:"American", ingredients:["Pasta","Cheddar","Butter","Bread"],
+    steps:["Cook pasta until al dente.","Melt butter and cheddar into a smooth sauce.","Toss the pasta in the cheese sauce.","Top with buttered breadcrumbs and bake until golden."]},
+  {name:"Fried Chicken", cuisine:"American", ingredients:["Chicken","Bread","Black Pepper","Paprika"],
+    steps:["Season chicken with black pepper and paprika.","Dredge in a seasoned flour-breadcrumb mixture.","Fry until deep golden and cooked through.","Rest briefly before serving."]},
+  {name:"Cobb Salad", cuisine:"American", ingredients:["Chicken","Bacon","Eggs","Avocado","Cheddar","Tomato"],
+    steps:["Arrange greens on a platter.","Top with rows of chicken, bacon, eggs, avocado, cheddar, and tomato.","Drizzle with dressing of choice.","Toss just before eating."]},
+  {name:"Grilled Salmon", cuisine:"American", ingredients:["Salmon","Lemon","Garlic","Butter","Dill"],
+    steps:["Season salmon fillets with garlic and dill.","Grill or pan-sear skin-side down until crisp.","Finish with a pat of butter and a squeeze of lemon.","Serve immediately."]},
+  {name:"Chili Con Carne", cuisine:"American", ingredients:["Ground Beef","Kidney Beans","Tomato","Onion","Chili Powder","Cumin"],
+    steps:["Brown ground beef with onion.","Stir in tomato, chili powder, and cumin.","Add kidney beans and simmer for at least 30 minutes.","Serve hot."]},
+  {name:"Turkey Club Sandwich", cuisine:"American", ingredients:["Turkey","Bacon","Bread","Tomato","Avocado"],
+    steps:["Toast the bread.","Layer turkey, bacon, tomato, and avocado.","Stack into a triple-decker.","Slice and serve."]},
+  {name:"Buffalo Chicken Wrap", cuisine:"American", ingredients:["Chicken","Tortilla","Sour Cream","Red Pepper Flakes","Cheddar"],
+    steps:["Cook chicken and toss with red pepper flakes.","Warm the tortilla.","Fill with chicken, cheddar, and a dollop of sour cream.","Roll tightly and slice in half."]},
+  {name:"Classic Meatloaf", cuisine:"American", ingredients:["Ground Beef","Bread","Onion","Tomato","Black Pepper"],
+    steps:["Mix ground beef with breadcrumbs, diced onion, and black pepper.","Shape into a loaf and top with tomato sauce.","Bake until cooked through.","Rest before slicing."]},
+
+  {name:"BBQ Chicken Sandwich", cuisine:"American", ingredients:["Chicken","Bread","Vinegar","Honey","Chili Powder"],
+    steps:["Season and cook chicken until tender.","Shred and toss with vinegar, honey, and chili powder.","Pile onto bread.","Serve warm."]},
+  {name:"Bacon Cheeseburger", cuisine:"American", ingredients:["Ground Beef","Bacon","Cheddar","Bread","Onion"],
+    steps:["Form and season ground beef patties.","Grill alongside strips of bacon.","Melt cheddar over the patty.","Build the burger with bread, bacon, and onion."]},
+  {name:"Crispy Baked Tuna Cakes", cuisine:"American", ingredients:["Tuna","Bread","Black Pepper","Paprika"],
+    steps:["Mix tuna with breadcrumbs, black pepper, and paprika.","Shape into small patties.","Bake or pan-fry until golden.","Serve warm."]},
+  {name:"Bacon Mac & Cheese", cuisine:"American", ingredients:["Pasta","Cheddar","Bacon","Butter","Bread"],
+    steps:["Cook pasta until al dente.","Melt butter and cheddar into a smooth sauce.","Fold in crisped bacon pieces.","Top with buttered breadcrumbs and bake until golden."]},
+  {name:"Grilled Chicken Cobb-Style Salad", cuisine:"American", ingredients:["Chicken","Avocado","Tomato","Cheddar","Bacon"],
+    steps:["Grill chicken and slice.","Arrange greens with tomato and avocado.","Top with the chicken, bacon, and shredded cheddar.","Toss just before serving."]},
+  {name:"Shrimp Po'boy", cuisine:"American", ingredients:["Shrimp","Bread","Sour Cream","Lemon"],
+    steps:["Fry or sear seasoned shrimp until cooked through.","Whisk sour cream with a squeeze of lemon for the sauce.","Spread the sauce onto bread.","Pile in the shrimp and serve."]},
+  {name:"Steak & Potatoes", cuisine:"American", ingredients:["Beef","Potato","Butter","Garlic","Black Pepper"],
+    steps:["Sear a seasoned steak to desired doneness.","Roast potato wedges with garlic until golden.","Rest the steak briefly.","Finish both with a pat of butter and cracked black pepper."]},
+  {name:"Turkey Chili", cuisine:"American", ingredients:["Turkey","Kidney Beans","Tomato","Onion","Chili Powder","Cumin"],
+    steps:["Brown ground turkey with onion.","Stir in tomato, chili powder, and cumin.","Add kidney beans and simmer.","Cook until thickened, about 30 minutes."]},
+  {name:"Loaded Baked Potato", cuisine:"American", ingredients:["Potato","Cheddar","Bacon","Sour Cream","Onion"],
+    steps:["Bake potatoes until tender throughout.","Split open and fluff the inside.","Top with cheddar, crisped bacon, and diced onion.","Finish with a dollop of sour cream."]},
+  {name:"Crab Cakes", cuisine:"American", ingredients:["Crab","Bread","Eggs","Lemon","Onion"],
+    steps:["Mix crab meat with breadcrumbs, egg, and diced onion.","Shape into patties.","Pan-fry until golden on both sides.","Serve with a squeeze of lemon."]},
+  {name:"Honey Glazed Salmon", cuisine:"American", ingredients:["Salmon","Honey","Garlic","Lemon","Butter"],
+    steps:["Season salmon fillets and sear skin-side down.","Add garlic and a spoonful of honey to the pan.","Baste the salmon as the glaze thickens.","Finish with a squeeze of lemon."]},
+  {name:"Sloppy Joes", cuisine:"American", ingredients:["Ground Beef","Tomato","Onion","Bread","Chili Powder"],
+    steps:["Brown ground beef with onion.","Stir in tomato and chili powder.","Simmer until thickened.","Spoon over toasted bread."]},
+  {name:"Chicken Pot Pie Filling", cuisine:"American", ingredients:["Chicken","Carrot","Peas","Potato","Butter","Bread"],
+    steps:["Sauté carrot and potato in butter until softened.","Add cooked chicken and peas.","Simmer with a little stock until thickened.","Serve spooned over warm bread."]},
+  {name:"Bacon Wrapped Shrimp", cuisine:"American", ingredients:["Shrimp","Bacon","Honey","Black Pepper"],
+    steps:["Wrap each shrimp in a strip of bacon.","Brush with honey and cracked black pepper.","Grill or broil until the bacon is crisp.","Serve immediately."]},
+  {name:"Turkey & Cabbage Melt", cuisine:"American", ingredients:["Turkey","Cheddar","Bread","Sour Cream","Cabbage"],
+    steps:["Toss shredded cabbage with a spoonful of sour cream for a quick slaw.","Layer turkey and cheddar on bread.","Toast until the cheese melts.","Top with the slaw before closing the sandwich."]},
+
+  // MEDITERRANEAN
+  {name:"Greek Salad", cuisine:"Mediterranean", ingredients:["Tomato","Cucumber","Feta","Olive Oil","Onion"],
+    steps:["Chop tomato, cucumber, and onion.","Toss together in a bowl.","Crumble feta over the top.","Drizzle generously with olive oil."]},
+  {name:"Hummus & Pita", cuisine:"Mediterranean", ingredients:["Chickpeas","Olive Oil","Lemon","Garlic","Bread"],
+    steps:["Blend chickpeas, garlic, and lemon juice until smooth.","Stream in olive oil while blending.","Adjust seasoning to taste.","Serve with warm pita bread."]},
+  {name:"Chicken Souvlaki", cuisine:"Mediterranean", ingredients:["Chicken","Lemon","Garlic","Oregano","Yogurt","Bread"],
+    steps:["Marinate chicken in lemon, garlic, and oregano.","Skewer and grill until charred and cooked through.","Serve with warm pita and a yogurt sauce.","Garnish with extra oregano."]},
+  {name:"Falafel Wrap", cuisine:"Mediterranean", ingredients:["Chickpeas","Cumin","Parsley","Garlic","Tortilla","Yogurt"],
+    steps:["Blend chickpeas with cumin, parsley, and garlic.","Shape into small patties and fry until crisp.","Wrap in a tortilla with a spoonful of yogurt sauce.","Serve warm."]},
+  {name:"Lamb Kofta", cuisine:"Mediterranean", ingredients:["Lamb","Cumin","Parsley","Onion","Garlic","Yogurt"],
+    steps:["Mix ground lamb with cumin, parsley, onion, and garlic.","Shape into small logs on skewers.","Grill until browned and cooked through.","Serve with a yogurt sauce."]},
+  {name:"Shrimp Orzo", cuisine:"Mediterranean", ingredients:["Shrimp","Pasta","Tomato","Feta","Olive Oil","Lemon"],
+    steps:["Cook orzo-style pasta until tender.","Sauté shrimp in olive oil until pink.","Toss with tomato, feta, and a squeeze of lemon.","Serve warm or at room temperature."]},
+  {name:"Stuffed Bell Peppers", cuisine:"Mediterranean", ingredients:["Bell Pepper","Rice","Ground Beef","Tomato","Onion","Mint"],
+    steps:["Hollow out bell peppers.","Mix cooked rice, ground beef, onion, and tomato for the filling.","Stuff the peppers and bake until tender.","Finish with fresh mint."]},
+  {name:"Baba Ganoush", cuisine:"Mediterranean", ingredients:["Eggplant","Garlic","Lemon","Olive Oil","Parsley"],
+    steps:["Roast eggplant until very soft and smoky.","Scoop out the flesh and blend with garlic and lemon.","Stream in olive oil while blending.","Garnish with parsley."]},
+  {name:"Mediterranean Grilled Salmon", cuisine:"Mediterranean", ingredients:["Salmon","Lemon","Olive Oil","Oregano","Feta"],
+    steps:["Season salmon with oregano and olive oil.","Grill until just cooked through.","Squeeze lemon over the top.","Finish with a sprinkle of crumbled feta."]},
+  {name:"Chicken Shawarma Bowl", cuisine:"Mediterranean", ingredients:["Chicken","Cumin","Garlic","Yogurt","Rice","Cucumber"],
+    steps:["Marinate chicken in cumin, garlic, and yogurt.","Sear until browned and cooked through.","Serve over rice with sliced cucumber.","Top with extra yogurt sauce."]},
+
+  {name:"Tzatziki Chicken Bowl", cuisine:"Mediterranean", ingredients:["Chicken","Yogurt","Cucumber","Garlic","Rice","Dill"],
+    steps:["Grill seasoned chicken until cooked through.","Mix yogurt with grated cucumber, garlic, and dill for the sauce.","Serve the chicken over rice.","Top generously with the sauce."]},
+  {name:"Mediterranean Lentil Soup", cuisine:"Mediterranean", ingredients:["Lentils","Onion","Garlic","Cumin","Lemon"],
+    steps:["Sauté onion and garlic with cumin.","Add lentils and simmer until tender.","Blend partially for a thicker texture, if desired.","Finish with a squeeze of lemon."]},
+  {name:"Roasted Vegetable Couscous", cuisine:"Mediterranean", ingredients:["Couscous","Zucchini","Bell Pepper","Onion","Olive Oil"],
+    steps:["Roast zucchini, bell pepper, and onion with olive oil until caramelized.","Prepare couscous according to package directions.","Fold the roasted vegetables into the couscous.","Drizzle with extra olive oil before serving."]},
+  {name:"Grilled Shrimp Skewers", cuisine:"Mediterranean", ingredients:["Shrimp","Lemon","Garlic","Olive Oil","Parsley"],
+    steps:["Marinate shrimp in lemon, garlic, and olive oil.","Thread onto skewers.","Grill until just pink and opaque.","Finish with fresh parsley."]},
+  {name:"Spinach & Feta Bake", cuisine:"Mediterranean", ingredients:["Spinach","Feta","Eggs","Bread"],
+    steps:["Wilt spinach in a pan.","Whisk eggs and combine with the spinach and crumbled feta.","Pour into a baking dish.","Bake until set and serve with warm bread."]},
+  {name:"Mediterranean Chickpea Salad", cuisine:"Mediterranean", ingredients:["Chickpeas","Cucumber","Tomato","Feta","Olive Oil","Lemon"],
+    steps:["Toss chickpeas with diced cucumber and tomato.","Crumble feta over the top.","Dress with olive oil and lemon juice.","Chill briefly before serving."]},
+  {name:"Lamb & Rice Pilaf", cuisine:"Mediterranean", ingredients:["Lamb","Rice","Onion","Cumin","Pine Nuts"],
+    steps:["Brown lamb with onion and cumin.","Add rice and toast briefly.","Simmer with stock until the rice is tender.","Top with toasted pine nuts."]},
+  {name:"Grilled Eggplant with Feta", cuisine:"Mediterranean", ingredients:["Eggplant","Feta","Olive Oil","Parsley","Lemon"],
+    steps:["Slice eggplant and brush with olive oil.","Grill until tender and lightly charred.","Top with crumbled feta and parsley.","Finish with a squeeze of lemon."]},
+  {name:"Mediterranean Tuna Salad", cuisine:"Mediterranean", ingredients:["Tuna","Olive Oil","Lemon","Cucumber","Tomato"],
+    steps:["Flake tuna into a bowl.","Add diced cucumber and tomato.","Dress with olive oil and lemon juice.","Toss and serve chilled."]},
+  {name:"Lemon Oregano Chicken", cuisine:"Mediterranean", ingredients:["Chicken","Lemon","Garlic","Oregano","Tomato"],
+    steps:["Marinate chicken in lemon, garlic, and oregano.","Sear until browned.","Add tomato and simmer until the chicken is cooked through.","Serve warm."]},
+  {name:"Roasted Salmon & Chickpeas", cuisine:"Mediterranean", ingredients:["Salmon","Chickpeas","Lemon","Garlic","Olive Oil"],
+    steps:["Toss chickpeas with olive oil and garlic on a sheet pan.","Nestle salmon fillets among the chickpeas.","Roast until the salmon is just cooked through.","Finish with a squeeze of lemon."]},
+  {name:"Beef Kofta Wrap", cuisine:"Mediterranean", ingredients:["Beef","Cumin","Parsley","Garlic","Tortilla","Yogurt"],
+    steps:["Mix ground beef with cumin, parsley, and garlic.","Shape into small logs and grill until browned.","Warm the tortillas.","Wrap the kofta with a spoonful of yogurt sauce."]},
+  {name:"Couscous with Chickpeas", cuisine:"Mediterranean", ingredients:["Couscous","Chickpeas","Carrot","Cumin","Olive Oil"],
+    steps:["Sauté carrot with cumin in olive oil.","Stir in chickpeas and warm through.","Prepare couscous according to package directions.","Fold everything together and serve."]},
+  {name:"Greek Lemon Chicken Soup", cuisine:"Mediterranean", ingredients:["Chicken","Lemon","Rice","Eggs","Dill"],
+    steps:["Simmer chicken in broth with rice until tender.","Whisk eggs with lemon juice.","Slowly temper the egg mixture into the hot broth.","Finish with fresh dill."]},
+  {name:"Mediterranean Shrimp & Feta Bake", cuisine:"Mediterranean", ingredients:["Shrimp","Feta","Tomato","Garlic","Olive Oil"],
+    steps:["Simmer tomato and garlic into a light sauce.","Nestle shrimp into the sauce.","Top with crumbled feta.","Bake until the shrimp is cooked through and the cheese softens."]},
+
+  // THAI
+  {name:"Shrimp Pad Thai", cuisine:"Thai", ingredients:["Rice Noodles","Shrimp","Peanuts","Eggs","Lime","Soy Sauce"],
+    steps:["Soak rice noodles until pliable.","Stir-fry shrimp, then push aside and scramble eggs in the pan.","Add noodles and soy sauce, tossing to combine.","Finish with peanuts and a squeeze of lime."]},
+  {name:"Thai Green Curry", cuisine:"Thai", ingredients:["Chicken","Coconut Milk","Green Beans","Basil","Ginger","Rice"],
+    steps:["Simmer coconut milk with ginger and curry paste.","Add chicken and cook through.","Stir in green beans and basil.","Serve over rice."]},
+  {name:"Tom Yum Soup", cuisine:"Thai", ingredients:["Shrimp","Lime","Cilantro","Mushroom","Red Pepper Flakes"],
+    steps:["Simmer broth with mushroom and red pepper flakes.","Add shrimp and cook until just pink.","Season with lime juice.","Finish with fresh cilantro."]},
+  {name:"Peanut Chicken Satay", cuisine:"Thai", ingredients:["Chicken","Peanuts","Coconut Milk","Cumin","Lime"],
+    steps:["Marinate chicken skewers with cumin and lime.","Grill until charred and cooked through.","Simmer coconut milk with crushed peanuts for the sauce.","Serve the skewers with peanut sauce."]},
+  {name:"Thai Basil Beef", cuisine:"Thai", ingredients:["Beef","Basil","Garlic","Bell Pepper","Soy Sauce","Rice"],
+    steps:["Stir-fry beef quickly over high heat.","Add garlic and bell pepper.","Toss with soy sauce and a generous handful of basil.","Serve over rice."]},
+  {name:"Mango Sticky Rice", cuisine:"Thai", ingredients:["Rice","Mango","Coconut Milk","Honey"],
+    steps:["Steam glutinous rice until tender.","Warm coconut milk with a touch of honey.","Pour the coconut milk over the warm rice.","Serve with sliced mango."]},
+  {name:"Massaman Curry", cuisine:"Thai", ingredients:["Beef","Potato","Coconut Milk","Peanuts","Cumin","Rice"],
+    steps:["Simmer beef in coconut milk until tender.","Add potato and cumin, cooking until soft.","Stir in crushed peanuts.","Serve over rice."]},
+  {name:"Thai Coconut Shrimp", cuisine:"Thai", ingredients:["Shrimp","Coconut Milk","Cilantro","Lime","Rice"],
+    steps:["Simmer coconut milk gently.","Add shrimp and poach until just pink.","Season with lime juice.","Serve over rice with fresh cilantro."]},
+  {name:"Larb Chicken Salad", cuisine:"Thai", ingredients:["Chicken","Lime","Cilantro","Mint","Red Pepper Flakes"],
+    steps:["Cook ground chicken until browned.","Toss with lime juice and red pepper flakes.","Fold in cilantro and mint.","Serve over lettuce leaves or rice."]},
+  {name:"Thai Fried Rice", cuisine:"Thai", ingredients:["Rice","Shrimp","Eggs","Soy Sauce","Cilantro","Lime"],
+    steps:["Scramble eggs and set aside.","Stir-fry shrimp until pink, then add rice.","Return eggs to the pan and season with soy sauce.","Finish with cilantro and lime."]},
+
+  {name:"Red Curry Chicken", cuisine:"Thai", ingredients:["Chicken","Coconut Milk","Bell Pepper","Basil","Ginger","Rice"],
+    steps:["Simmer coconut milk with ginger and curry paste.","Add chicken and cook through.","Stir in bell pepper and basil.","Serve over rice."]},
+  {name:"Thai Peanut Noodles", cuisine:"Thai", ingredients:["Noodles","Peanuts","Soy Sauce","Lime","Cilantro"],
+    steps:["Cook noodles until tender.","Whisk together soy sauce, lime juice, and crushed peanuts.","Toss the noodles in the sauce.","Finish with fresh cilantro."]},
+  {name:"Coconut Chicken Soup", cuisine:"Thai", ingredients:["Chicken","Coconut Milk","Lime","Cilantro","Mushroom"],
+    steps:["Simmer coconut milk with sliced mushroom.","Add chicken and cook through.","Season with lime juice.","Finish with fresh cilantro."]},
+  {name:"Thai Cashew Chicken", cuisine:"Thai", ingredients:["Chicken","Cashews","Bell Pepper","Soy Sauce","Rice"],
+    steps:["Stir-fry chicken until browned.","Add bell pepper and cook until tender-crisp.","Toss in cashews and soy sauce.","Serve over rice."]},
+  {name:"Beef & Peanut Noodle Bowl", cuisine:"Thai", ingredients:["Beef","Noodles","Coconut Milk","Peanuts","Cumin"],
+    steps:["Sear sliced beef quickly over high heat.","Simmer coconut milk with a pinch of cumin.","Toss cooked noodles in the sauce with the beef.","Top with crushed peanuts."]},
+  {name:"Thai Shrimp Curry Noodles", cuisine:"Thai", ingredients:["Shrimp","Rice Noodles","Coconut Milk","Red Pepper Flakes","Cilantro"],
+    steps:["Soak rice noodles until pliable.","Simmer coconut milk with red pepper flakes.","Add shrimp and cook until pink.","Toss with the noodles and finish with cilantro."]},
+  {name:"Pineapple Fried Rice", cuisine:"Thai", ingredients:["Rice","Pineapple","Shrimp","Cashews","Soy Sauce"],
+    steps:["Stir-fry shrimp until pink.","Add rice and chunks of pineapple.","Toss with soy sauce.","Finish with cashews."]},
+  {name:"Thai Basil Chicken", cuisine:"Thai", ingredients:["Chicken","Basil","Garlic","Bell Pepper","Soy Sauce","Rice"],
+    steps:["Stir-fry chicken with garlic until browned.","Add bell pepper and cook until tender-crisp.","Toss with soy sauce and a generous handful of basil.","Serve over rice."]},
+  {name:"Tofu Green Curry", cuisine:"Thai", ingredients:["Tofu","Coconut Milk","Green Beans","Basil","Rice"],
+    steps:["Pan-fry tofu until golden.","Simmer coconut milk with curry paste.","Add tofu and green beans, cooking until tender.","Stir in basil and serve over rice."]},
+  {name:"Coconut Tofu Soup", cuisine:"Thai", ingredients:["Tofu","Coconut Milk","Mushroom","Lime","Cilantro"],
+    steps:["Simmer coconut milk with sliced mushroom.","Add cubed tofu and warm through.","Season with lime juice.","Finish with fresh cilantro."]},
+  {name:"Ginger Pork Skewers", cuisine:"Thai", ingredients:["Pork","Ginger","Garlic","Lime","Rice"],
+    steps:["Marinate pork pieces in ginger, garlic, and lime.","Thread onto skewers.","Grill until browned and cooked through.","Serve over rice."]},
+  {name:"Thai Cucumber Salad", cuisine:"Thai", ingredients:["Cucumber","Lime","Cilantro","Peanuts","Red Pepper Flakes"],
+    steps:["Slice cucumber thinly.","Toss with lime juice and red pepper flakes.","Top with crushed peanuts.","Finish with fresh cilantro."]},
+  {name:"Duck Red Curry", cuisine:"Thai", ingredients:["Duck","Coconut Milk","Bell Pepper","Basil","Rice"],
+    steps:["Sear duck pieces until browned.","Simmer in coconut milk with curry paste.","Add bell pepper and cook until tender.","Stir in basil and serve over rice."]},
+  {name:"Thai Shrimp Fried Noodles", cuisine:"Thai", ingredients:["Rice Noodles","Shrimp","Eggs","Soy Sauce","Lime"],
+    steps:["Soak rice noodles until pliable.","Stir-fry shrimp, then push aside and scramble eggs.","Add the noodles and soy sauce, tossing well.","Finish with a squeeze of lime."]},
+  {name:"Coconut Banana Rice", cuisine:"Thai", ingredients:["Banana","Coconut Milk","Honey","Rice"],
+    steps:["Steam rice until tender.","Warm coconut milk with a touch of honey.","Pour over the rice.","Top with sliced banana."]},
+
+  // JAPANESE
+  {name:"Chicken Teriyaki", cuisine:"Japanese", ingredients:["Chicken","Soy Sauce","Honey","Ginger","Rice"],
+    steps:["Sear chicken until browned and cooked through.","Simmer soy sauce, honey, and ginger into a glaze.","Toss the chicken in the glaze.","Serve over rice."]},
+  {name:"Salmon Sushi Bowl", cuisine:"Japanese", ingredients:["Salmon","Rice","Avocado","Cucumber","Soy Sauce"],
+    steps:["Prepare a bowl of seasoned rice.","Top with sliced salmon, avocado, and cucumber.","Drizzle with soy sauce.","Serve chilled or at room temperature."]},
+  {name:"Beef Yakisoba", cuisine:"Japanese", ingredients:["Noodles","Beef","Cabbage","Carrot","Soy Sauce"],
+    steps:["Stir-fry beef until browned.","Add cabbage and carrot, cooking until tender-crisp.","Toss in cooked noodles.","Season with soy sauce and toss well."]},
+  {name:"Tofu & Mushroom Soup", cuisine:"Japanese", ingredients:["Tofu","Soy Sauce","Onion","Mushroom"],
+    steps:["Simmer a light broth with mushroom and onion.","Add cubed tofu and warm through gently.","Season with soy sauce.","Serve hot."]},
+  {name:"Shrimp Tempura", cuisine:"Japanese", ingredients:["Shrimp","Bread","Soy Sauce","Lemon"],
+    steps:["Coat shrimp in a light breadcrumb batter.","Fry until crisp and golden.","Serve with a soy dipping sauce.","Add a squeeze of lemon."]},
+  {name:"Pork Tonkatsu", cuisine:"Japanese", ingredients:["Pork","Bread","Cabbage","Honey"],
+    steps:["Coat a pork cutlet in breadcrumbs.","Fry until deep golden and cooked through.","Slice and serve over shredded cabbage.","Drizzle with a honey-based tonkatsu sauce."]},
+  {name:"Chicken Katsu Curry", cuisine:"Japanese", ingredients:["Chicken","Bread","Curry Powder","Rice","Onion","Carrot"],
+    steps:["Bread and fry the chicken cutlet until golden.","Simmer onion and carrot with curry powder into a sauce.","Slice the chicken and serve over rice.","Pour the curry sauce over the top."]},
+  {name:"Edamame & Rice Bowl", cuisine:"Japanese", ingredients:["Edamame","Rice","Soy Sauce","Ginger"],
+    steps:["Steam edamame until tender and lightly salted.","Prepare a bowl of warm rice.","Top with edamame and a drizzle of soy sauce.","Finish with grated ginger."]},
+  {name:"Pork Gyoza", cuisine:"Japanese", ingredients:["Pork","Cabbage","Garlic","Ginger","Soy Sauce"],
+    steps:["Mix ground pork with finely chopped cabbage, garlic, and ginger.","Fold into dumpling wrappers.","Pan-fry until the bottoms are crisp, then steam briefly.","Serve with a soy dipping sauce."]},
+  {name:"Salmon Teriyaki Bowl", cuisine:"Japanese", ingredients:["Salmon","Soy Sauce","Honey","Rice","Ginger"],
+    steps:["Sear salmon fillets skin-side down until crisp.","Simmer soy sauce, honey, and ginger into a glaze.","Spoon the glaze over the salmon.","Serve over rice."]},
+  {name:"Tuna Poke Bowl", cuisine:"Japanese", ingredients:["Tuna","Rice","Avocado","Soy Sauce","Cucumber"],
+    steps:["Cube fresh tuna and toss with a little soy sauce.","Prepare a bowl of seasoned rice.","Top with the tuna, avocado, and sliced cucumber.","Serve chilled."]},
+  {name:"Chicken Yakitori", cuisine:"Japanese", ingredients:["Chicken","Soy Sauce","Honey","Ginger"],
+    steps:["Thread chicken pieces onto skewers.","Simmer soy sauce, honey, and ginger into a glaze.","Grill the skewers, basting with the glaze.","Serve hot."]},
+  {name:"Beef Teriyaki Rice Bowl", cuisine:"Japanese", ingredients:["Beef","Soy Sauce","Honey","Rice","Ginger"],
+    steps:["Sear sliced beef quickly over high heat.","Simmer soy sauce, honey, and ginger into a glaze.","Toss the beef in the glaze.","Serve over rice."]},
+  {name:"Shrimp & Sweet Potato Tempura", cuisine:"Japanese", ingredients:["Shrimp","Sweet Potato","Bread","Soy Sauce"],
+    steps:["Slice sweet potato thin and coat with shrimp in a light batter.","Fry until crisp and golden.","Drain briefly.","Serve with a soy dipping sauce."]},
+  {name:"Tofu & Mushroom Miso-Style Soup", cuisine:"Japanese", ingredients:["Tofu","Mushroom","Soy Sauce","Onion"],
+    steps:["Simmer a light broth with mushroom and onion.","Add cubed tofu and warm through gently.","Season with soy sauce.","Serve hot."]},
+  {name:"Salmon Katsu", cuisine:"Japanese", ingredients:["Salmon","Bread","Cabbage","Lemon"],
+    steps:["Coat a salmon fillet in breadcrumbs.","Fry until golden and just cooked through.","Slice and serve over shredded cabbage.","Finish with a squeeze of lemon."]},
+  {name:"Chicken Curry Udon", cuisine:"Japanese", ingredients:["Noodles","Chicken","Curry Powder","Onion","Carrot"],
+    steps:["Sauté chicken with onion and carrot.","Stir in curry powder and a splash of stock, simmering until thickened.","Cook noodles separately.","Combine the noodles with the curry sauce."]},
+  {name:"Pork Ramen", cuisine:"Japanese", ingredients:["Noodles","Pork","Soy Sauce","Eggs","Onion"],
+    steps:["Simmer a soy-seasoned broth with sliced onion.","Cook noodles separately and add to bowls.","Top with sliced pork and a soft-cooked egg.","Ladle the hot broth over the top."]},
+  {name:"Vegetable Yakisoba", cuisine:"Japanese", ingredients:["Noodles","Cabbage","Carrot","Bell Pepper","Soy Sauce"],
+    steps:["Stir-fry cabbage, carrot, and bell pepper until tender-crisp.","Add cooked noodles to the pan.","Toss everything with soy sauce.","Serve hot."]},
+  {name:"Salmon & Avocado Rice Bowl", cuisine:"Japanese", ingredients:["Salmon","Avocado","Rice","Soy Sauce","Cucumber"],
+    steps:["Sear or poach the salmon until just cooked through.","Prepare a bowl of seasoned rice.","Top with salmon, avocado, and cucumber.","Drizzle with soy sauce."]},
+  {name:"Chicken Gyoza", cuisine:"Japanese", ingredients:["Chicken","Cabbage","Garlic","Ginger","Soy Sauce"],
+    steps:["Mix ground chicken with finely chopped cabbage, garlic, and ginger.","Fold into dumpling wrappers.","Pan-fry until the bottoms are crisp, then steam briefly.","Serve with a soy dipping sauce."]},
+  {name:"Teriyaki Tofu Bowl", cuisine:"Japanese", ingredients:["Tofu","Soy Sauce","Honey","Rice","Ginger"],
+    steps:["Pan-fry tofu cubes until golden.","Simmer soy sauce, honey, and ginger into a glaze.","Toss the tofu in the glaze.","Serve over rice."]},
+  {name:"Beef & Onion Rice Bowl", cuisine:"Japanese", ingredients:["Beef","Onion","Soy Sauce","Honey","Rice"],
+    steps:["Simmer sliced onion in soy sauce and honey until softened.","Add thin-sliced beef and cook through.","Spoon over a bowl of rice.","Serve hot."]},
+  {name:"Crab Rice Bowl", cuisine:"Japanese", ingredients:["Crab","Rice","Avocado","Soy Sauce","Cucumber"],
+    steps:["Prepare a bowl of seasoned rice.","Top with crab meat, avocado, and cucumber.","Drizzle with soy sauce.","Serve chilled or at room temperature."]},
+  {name:"Edamame Cucumber Salad", cuisine:"Japanese", ingredients:["Edamame","Cucumber","Soy Sauce","Carrot"],
+    steps:["Steam edamame until tender.","Toss with sliced cucumber and carrot.","Dress with a little soy sauce.","Chill briefly before serving."]}
+];
+
+/* ============ RECIPE GENERATOR ============
+   The 200 recipes above are hand-written. To get into the hundreds without
+   quality dropping off, we systematically combine a protein + a vegetable
+   into a couple of cuisine-authentic dish shapes per cuisine — the same way
+   a protein and a side "slot" get remixed on any real menu. Every ingredient
+   still comes from the same 100-item list used in the survey. */
+const lc = s => s.charAt(0).toLowerCase() + s.slice(1);
+const GENERATOR_CONFIG = {
+  Italian: {
+    proteins: ["Chicken","Ground Beef","Shrimp","Sausage","Turkey","Tofu","Chickpeas"],
+    vegetables: ["Broccoli","Spinach","Zucchini","Mushroom"],
+    templates: [
+      { name: (p,v) => `${p} & ${v} Pasta`,
+        ingredients: (p,v) => ["Pasta", p, v, "Garlic", "Olive Oil", "Parmesan"],
+        steps: (p,v) => ["Cook pasta until al dente.", `Sauté ${lc(p)} with garlic in olive oil until cooked through.`, `Add ${lc(v)} and cook until tender.`, "Toss everything with the pasta and top with parmesan."] },
+      { name: (p,v) => `${p} & ${v} Risotto`,
+        ingredients: (p,v) => ["Rice", p, v, "Onion", "Butter", "Parmesan"],
+        steps: (p,v) => ["Sauté onion in butter until soft.", `Add rice and toast briefly, then stir in ${lc(p)}.`, `Add stock gradually until creamy, folding in ${lc(v)} near the end.`, "Finish with grated parmesan."] }
+    ]
+  },
+  Mexican: {
+    proteins: ["Chicken","Ground Beef","Shrimp","Pork","Chorizo","Turkey","Black Beans"],
+    vegetables: ["Bell Pepper","Onion","Corn","Cabbage"],
+    templates: [
+      { name: (p,v) => `${p} & ${v} Tacos`,
+        ingredients: (p,v) => ["Tortilla", p, v, "Cilantro", "Lime", "Cheddar"],
+        steps: (p,v) => [`Cook ${lc(p)} until browned or heated through.`, `Sauté ${lc(v)} until just tender.`, "Warm the tortillas and fill with the mixture.", "Top with cheddar, cilantro, and a squeeze of lime."] },
+      { name: (p,v) => `${p} & ${v} Burrito Bowl`,
+        ingredients: (p,v) => ["Rice", p, v, "Cheddar", "Lime", "Cilantro"],
+        steps: (p,v) => ["Cook rice and set aside.", `Sauté ${lc(p)} and ${lc(v)} together until cooked through.`, "Build bowls with rice topped by the mixture.", "Finish with cheddar, cilantro, and lime."] }
+    ]
+  },
+  Indian: {
+    proteins: ["Chicken","Chickpeas","Shrimp","Lamb","Lentils","Turkey","Tofu"],
+    vegetables: ["Spinach","Cauliflower","Peas","Potato"],
+    templates: [
+      { name: (p,v) => `${p} & ${v} Curry`,
+        ingredients: (p,v) => [p, v, "Onion", "Garam Masala", "Turmeric", "Ginger", "Rice"],
+        steps: (p,v) => ["Sauté onion, ginger, garam masala, and turmeric until fragrant.", `Add ${lc(p)} and cook until browned.`, `Stir in ${lc(v)} and a splash of water, then simmer until tender.`, "Serve over rice."] },
+      { name: (p,v) => `${p} & ${v} Biryani`,
+        ingredients: (p,v) => ["Rice", p, v, "Garam Masala", "Saffron", "Onion"],
+        steps: (p,v) => ["Parboil rice with a pinch of saffron.", `Sauté onion until golden, then add ${lc(p)} and garam masala.`, `Layer in ${lc(v)} and the rice.`, "Cover and steam until fully cooked through."] }
+    ]
+  },
+  Chinese: {
+    proteins: ["Chicken","Beef","Shrimp","Pork","Tofu","Duck","Crab"],
+    vegetables: ["Broccoli","Bell Pepper","Mushroom","Cabbage"],
+    templates: [
+      { name: (p,v) => `${p} & ${v} Stir-Fry`,
+        ingredients: (p,v) => [p, v, "Garlic", "Ginger", "Soy Sauce", "Rice"],
+        steps: (p,v) => [`Stir-fry ${lc(p)} over high heat until browned.`, `Add ${lc(v)}, garlic, and ginger, cooking until tender-crisp.`, "Toss everything with soy sauce.", "Serve over rice."] },
+      { name: (p,v) => `${p} & ${v} Fried Rice`,
+        ingredients: (p,v) => ["Rice", p, v, "Eggs", "Soy Sauce"],
+        steps: (p,v) => ["Scramble eggs and set aside.", `Stir-fry ${lc(p)} and ${lc(v)} until cooked through.`, "Add rice and toss well.", "Fold in the eggs and season with soy sauce."] }
+    ]
+  },
+  American: {
+    proteins: ["Chicken","Ground Beef","Turkey","Shrimp","Bacon","Salmon","Pork"],
+    vegetables: ["Potato","Corn","Green Beans","Bell Pepper"],
+    templates: [
+      { name: (p,v) => `${p} & ${v} Skillet`,
+        ingredients: (p,v) => [p, v, "Onion", "Butter", "Black Pepper"],
+        steps: (p,v) => [`Sear ${lc(p)} in butter until browned.`, `Add ${lc(v)} and onion, cooking until tender.`, "Season with black pepper.", "Serve hot from the skillet."] },
+      { name: (p,v) => `${p} & ${v} Casserole`,
+        ingredients: (p,v) => [p, v, "Cheddar", "Bread", "Butter"],
+        steps: (p,v) => [`Cook ${lc(p)} and ${lc(v)} together until just tender.`, "Transfer to a baking dish and top with cheddar.", "Sprinkle buttered breadcrumbs on top.", "Bake until golden and bubbly."] }
+    ]
+  },
+  Mediterranean: {
+    proteins: ["Chicken","Shrimp","Lamb","Chickpeas","Salmon","Turkey","Tuna"],
+    vegetables: ["Zucchini","Eggplant","Cucumber","Tomato"],
+    templates: [
+      { name: (p,v) => `${p} & ${v} Skewers`,
+        ingredients: (p,v) => [p, v, "Lemon", "Garlic", "Olive Oil", "Oregano"],
+        steps: (p,v) => [`Marinate ${lc(p)} in lemon, garlic, and oregano.`, `Thread onto skewers with ${lc(v)}.`, "Grill until cooked through and lightly charred.", "Finish with a drizzle of olive oil."] },
+      { name: (p,v) => `${p} & ${v} Grain Bowl`,
+        ingredients: (p,v) => [p, v, "Couscous", "Feta", "Olive Oil", "Lemon"],
+        steps: (p,v) => ["Cook couscous according to package directions.", `Sauté or grill ${lc(p)} with ${lc(v)}.`, "Build bowls with couscous topped by the mixture.", "Finish with crumbled feta and a squeeze of lemon."] }
+    ]
+  },
+  Thai: {
+    proteins: ["Chicken","Shrimp","Beef","Tofu","Duck","Pork","Turkey"],
+    vegetables: ["Bell Pepper","Green Beans","Mushroom","Cabbage"],
+    templates: [
+      { name: (p,v) => `${p} & ${v} Curry`,
+        ingredients: (p,v) => [p, v, "Coconut Milk", "Basil", "Ginger", "Rice"],
+        steps: (p,v) => ["Simmer coconut milk with ginger and curry paste.", `Add ${lc(p)} and cook through.`, `Stir in ${lc(v)} and basil.`, "Serve over rice."] },
+      { name: (p,v) => `${p} & ${v} Stir-Fry`,
+        ingredients: (p,v) => [p, v, "Garlic", "Soy Sauce", "Lime", "Rice"],
+        steps: (p,v) => [`Stir-fry ${lc(p)} until cooked through.`, `Add ${lc(v)} and garlic, cooking until tender-crisp.`, "Toss with soy sauce and a squeeze of lime.", "Serve over rice."] }
+    ]
+  },
+  Japanese: {
+    proteins: ["Chicken","Salmon","Beef","Tofu","Shrimp","Pork","Crab"],
+    vegetables: ["Cabbage","Carrot","Mushroom","Cucumber"],
+    templates: [
+      { name: (p,v) => `${p} & ${v} Rice Bowl`,
+        ingredients: (p,v) => [p, v, "Soy Sauce", "Honey", "Ginger", "Rice"],
+        steps: (p,v) => [`Sear ${lc(p)} until cooked through.`, "Simmer soy sauce, honey, and ginger into a glaze.", `Toss ${lc(p)} in the glaze along with ${lc(v)}.`, "Serve over rice."] },
+      { name: (p,v) => `${p} & ${v} Noodle Stir-Fry`,
+        ingredients: (p,v) => [p, v, "Noodles", "Soy Sauce", "Garlic"],
+        steps: (p,v) => [`Stir-fry ${lc(p)} with garlic until cooked through.`, `Add ${lc(v)}, cooking until tender-crisp.`, "Toss in cooked noodles.", "Season with soy sauce and serve."] }
+    ]
+  }
+};
+
+function generateRecipes(){
+  const generated = [];
+  const seenNames = new Set(RECIPES.map(r => r.name));
+  for(const cuisine in GENERATOR_CONFIG){
+    const cfg = GENERATOR_CONFIG[cuisine];
+    for(const protein of cfg.proteins){
+      for(const veg of cfg.vegetables){
+        for(const tmpl of cfg.templates){
+          const name = tmpl.name(protein, veg);
+          if(seenNames.has(name)) continue; // skip anything that collides with a hand-written recipe
+          seenNames.add(name);
+          const ingredients = [...new Set(tmpl.ingredients(protein, veg))];
+          generated.push({ name, cuisine, ingredients, steps: tmpl.steps(protein, veg) });
+        }
+      }
+    }
+  }
+  return generated;
+}
+const ALL_RECIPES = RECIPES.concat(generateRecipes());
+
+/* ============ STATE ============ */
+let profiles = [];               // [{id,name}]
+let answersByProfile = {};       // {id: {ingredient: 1-5}}
+let view = "loading";            // loading | home | survey | cuisine | results
+let surveyProfileId = null;
+let selectedCuisine = null;
+let expandedRecipe = null;
+let resultsOffset = 0;
+let liveRecipes = null;        // recipes returned by Claude for the current cuisine (null = not loaded)
+let loadingResults = false;
+let resultsError = null;
+let usingFallback = false;     // true if we fell back to the offline recipe pool
+let shownRecipeNames = [];     // names already shown this session, so "more" doesn't repeat
+
+const $ = (sel) => document.querySelector(sel);
+function uid(){ return 'p_' + Math.random().toString(36).slice(2,10); }
+
+/* ============ STORAGE ============
+   Inside Claude, window.storage persists per-viewer automatically — perfect
+   for sharing this app, since everyone who opens it keeps their own separate
+   set of eaters. If this file is ever opened outside Claude (hosted on its
+   own, or double-clicked as a local file), window.storage won't exist, so we
+   fall back to the browser's own localStorage for that same on-device,
+   per-person persistence. */
+const usingFallbackStorage = (typeof window.storage === 'undefined');
+const localStore = {
+  async get(key){
+    const raw = localStorage.getItem('pantrypanel:' + key);
+    if(raw === null) throw new Error('not found');
+    return {key, value: raw};
+  },
+  async set(key, value){
+    localStorage.setItem('pantrypanel:' + key, value);
+    return {key, value};
+  },
+  async delete(key){
+    localStorage.removeItem('pantrypanel:' + key);
+    return {key, deleted:true};
+  }
+};
+const store = usingFallbackStorage ? localStore : window.storage;
+
+async function loadAll(){
+  try{
+    const p = await store.get('profiles');
+    profiles = p ? JSON.parse(p.value) : [];
+  }catch(e){ profiles = []; }
+  answersByProfile = {};
+  for(const pr of profiles){
+    try{
+      const a = await store.get('answers:' + pr.id);
+      answersByProfile[pr.id] = a ? JSON.parse(a.value) : {};
+    }catch(e){ answersByProfile[pr.id] = {}; }
+  }
+  view = "home";
+  render();
+}
+async function saveProfiles(){
+  try{ await store.set('profiles', JSON.stringify(profiles)); }
+  catch(e){ console.error('save profiles failed', e); }
+}
+async function saveAnswers(profileId){
+  try{ await store.set('answers:' + profileId, JSON.stringify(answersByProfile[profileId] || {})); }
+  catch(e){ console.error('save answers failed', e); }
+}
+
+/* ============ HELPERS ============ */
+function surveyDone(profileId){
+  const a = answersByProfile[profileId] || {};
+  return Object.keys(a).length > 0;
+}
+function anyProfileSurveyed(){
+  return profiles.some(p => surveyDone(p.id));
+}
+
+/* ============ RENDER ============ */
+function render(){
+  const app = $('#app');
+  const stepIndex = {loading:0, home:0, survey:1, cuisine:2, results:3}[view] ?? 0;
+  const stepsHtml = [0,1,2,3].map(i => `<span class="${i<=stepIndex?'on':''}"></span>`).join('');
+  let body = '';
+  if(view === 'loading') body = `<div class="empty-state"><span class="big">🍽️</span>Loading your pantry panel…</div>`;
+  else if(view === 'home') body = renderHome();
+  else if(view === 'survey') body = renderSurvey();
+  else if(view === 'cuisine') body = renderCuisine();
+  else if(view === 'results') body = renderResults();
+
+  app.innerHTML = `
+    <div class="ticket">
+      <div>
+        <div class="sub">THE PANTRY PANEL</div>
+        <h1 class="display">${headerTitle()}</h1>
+      </div>
+      <div class="steps">${stepsHtml}</div>
+    </div>
+    ${body}
+  `;
+  attachHandlers();
+}
+
+function headerTitle(){
+  if(view==='home') return "Who's Eating?";
+  if(view==='survey'){
+    const p = profiles.find(x=>x.id===surveyProfileId);
+    return p ? p.name + "'s Survey" : 'Survey';
+  }
+  if(view==='cuisine') return 'Pick A Cuisine';
+  if(view==='results') return selectedCuisine + ' Night';
+  return 'Loading';
+}
+
+function renderHome(){
+  const rows = profiles.map(p => {
+    const done = surveyDone(p.id);
+    return `
+    <div class="profile-row">
+      <div>
+        <div class="name">${escapeHtml(p.name)}</div>
+        <div class="status ${done?'done':''}">${done ? '✓ Survey complete' : 'Survey not started'}</div>
+      </div>
+      <div class="actions">
+        <button class="btn ghost small" data-action="survey" data-id="${p.id}">${done?'Retake':'Start'} Survey</button>
+        <button class="btn tomato small" data-action="delete" data-id="${p.id}">Remove</button>
+      </div>
+    </div>`;
+  }).join('') || `<div class="empty-state"><span class="big">🧑‍🍳</span>Add your first picky eater below to get started.</div>`;
+
+  const canSearch = anyProfileSurveyed();
+
+  return `
+    <div class="card">
+      <h2>Eater Profiles</h2>
+      <p class="muted">Add a profile for each person, then have them run through the 100-ingredient survey once. It's saved for next time.</p>
+      ${rows}
+      <div class="add-row">
+        <input type="text" id="newName" placeholder="e.g. Jonah, Mom, Uncle Rick..." maxlength="30">
+        <button class="btn avocado" data-action="add">Add Eater</button>
+      </div>
+    </div>
+    <div class="card" style="text-align:center;">
+      <h2>Ready To Cook?</h2>
+      <p class="muted">${canSearch ? "Pick a cuisine and we'll find dishes everyone at the table can agree on." : 'Complete at least one survey to unlock cuisine matching.'}</p>
+      <button class="btn" data-action="goCuisine" ${canSearch?'':'disabled'}>Find Recipes →</button>
+    </div>
+  `;
+}
+
+function renderSurvey(){
+  const answers = answersByProfile[surveyProfileId] || {};
+  const answeredCount = Object.keys(answers).length;
+  const pct = Math.round((answeredCount / ALL_INGREDIENTS.length) * 100);
+
+  const categories = Object.entries(INGREDIENT_CATEGORIES).map(([cat, items]) => {
+    const rows = items.map(ing => {
+      const rating = answers[ing] || null;
+      const buttons = [1,2,3,4,5].map(n =>
+        `<button class="stamp ${rating===n?'active':''}" data-rating="${n}" title="${n}/5">${n}</button>`
+      ).join('');
+      return `
+      <div class="ing-row">
+        <div class="ing-name">${ing}</div>
+        <div class="stamp-group" data-ing="${escapeAttr(ing)}">${buttons}</div>
+      </div>`;
+    }).join('');
+    return `<div class="category-block"><h3 class="display">${cat}</h3>${rows}</div>`;
+  }).join('');
+
+  return `
+    <button class="top-link" data-action="backHome">← Back to profiles</button>
+    <div class="survey-head card" style="padding:14px 20px;">
+      <div class="muted" style="margin-bottom:2px;">Rate each ingredient 1-5. Leave it blank if it doesn't matter either way.</div>
+      <div class="scale-legend"><span>1 = Hate it</span><span>3 = Take it or leave it</span><span>5 = Love it</span></div>
+      <div class="progress-track" style="margin-top:6px;"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="muted" style="margin-top:6px;font-size:12px;">${answeredCount} of ${ALL_INGREDIENTS.length} ingredients rated</div>
+    </div>
+    <div class="card">${categories}</div>
+    <div class="survey-foot">
+      <button class="btn ghost" data-action="backHome">Save & Exit</button>
+      <button class="btn avocado" data-action="finishSurvey">Finish Survey</button>
+    </div>
+  `;
+}
+
+function renderCuisine(){
+  const tiles = Object.entries(CUISINE_META).map(([name, emoji]) => `
+    <button class="cuisine-tile" data-action="pickCuisine" data-cuisine="${name}">
+      <span class="emoji">${emoji}</span>
+      <span class="label display">${name}</span>
+    </button>
+  `).join('');
+  return `
+    <button class="top-link" data-action="backHome">← Back to profiles</button>
+    <div class="card">
+      <h2>What's for dinner?</h2>
+      <p class="muted">We'll hand every surveyed profile's ratings to our recipe engine and it'll write up dishes suited to the whole table.</p>
+      <div class="cuisine-grid">${tiles}</div>
+      <div class="add-row" style="margin-top:16px;">
+        <input type="text" id="customCuisine" placeholder="Or type any cuisine — Ethiopian, Cajun, Peruvian...">
+        <button class="btn avocado" data-action="pickCustomCuisine">Go</button>
+      </div>
+    </div>
+  `;
+}
+
+/* ---- Live recipe generation via Claude ---- */
+function buildPreferenceSummary(){
+  const surveyed = profiles.filter(p => surveyDone(p.id));
+  return surveyed.map(p => {
+    const a = answersByProfile[p.id] || {};
+    const loved = Object.entries(a).filter(([,v]) => v >= 4).map(([k,v]) => `${k} (${v}/5)`);
+    const disliked = Object.entries(a).filter(([,v]) => v <= 2).map(([k,v]) => `${k} (${v}/5)`);
+    return `${p.name}: loves [${loved.join(', ') || 'nothing rated that high'}]; dislikes [${disliked.join(', ') || 'nothing rated that low'}]`;
+  }).join('\n');
+}
+
+async function fetchLiveRecipes(cuisine, excludeNames){
+  const prefsText = buildPreferenceSummary();
+  const excludeText = excludeNames.length
+    ? `Do not repeat any of these dish names, which have already been shown: ${excludeNames.join(', ')}.`
+    : '';
+  const prompt = `Generate 6 real, diverse ${cuisine} cuisine recipes suitable for a family meal.
+Here are the eaters and how they rated ingredients on a 1-5 scale (1 = hate it, 5 = love it; anything not listed means no strong opinion):
+${prefsText || 'No one has rated ingredients yet — suggest broadly crowd-pleasing options.'}
+
+Rules:
+- Never include an ingredient any single person rated 1.
+- Try to avoid ingredients rated 2 unless the dish doesn't work without it.
+- Ingredients rated 3 or unrated are perfectly fine to include.
+- Prioritize recipes that include several ingredients people rated 4 or 5.
+${excludeText}
+
+Respond with ONLY a JSON array (no markdown fences, no commentary before or after) of exactly 6 objects. Each object must have exactly these fields:
+"name" (string), "description" (one short sentence), "ingredients" (array of plain ingredient name strings, no quantities), "steps" (array of 4 short instruction strings).`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1000,
+      messages: [{ role: "user", content: prompt }]
+    })
+  });
+  if(!response.ok) throw new Error('API request failed: ' + response.status);
+  const data = await response.json();
+  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+  const clean = text.replace(/```json|```/g, '').trim();
+  const parsed = JSON.parse(clean);
+  if(!Array.isArray(parsed)) throw new Error('Unexpected response shape');
+  return parsed;
+}
+
+async function loadResultsFor(cuisine, append){
+  loadingResults = true;
+  resultsError = null;
+  if(!append){ liveRecipes = []; shownRecipeNames = []; usingFallback = false; }
+  render();
+  try{
+    const batch = await fetchLiveRecipes(cuisine, shownRecipeNames);
+    liveRecipes = append ? liveRecipes.concat(batch) : batch;
+    shownRecipeNames = shownRecipeNames.concat(batch.map(r => r.name));
+    usingFallback = false;
+  }catch(e){
+    console.error('Live recipe fetch failed, falling back to offline set:', e);
+    const fallbackPool = ALL_RECIPES.filter(r => r.cuisine === cuisine);
+    if(fallbackPool.length === 0){
+      resultsError = `Couldn't reach the recipe engine, and there's no offline backup for "${cuisine}". Check your connection and try again.`;
+      liveRecipes = [];
+    } else {
+      usingFallback = true;
+      liveRecipes = rankFallbackRecipes(fallbackPool).slice(0, 10);
+    }
+  }
+  loadingResults = false;
+  render();
+}
+
+function rankFallbackRecipes(pool){
+  const surveyed = profiles.filter(p => surveyDone(p.id));
+  const scored = pool.map(r => {
+    let conflictSeverity = 0, lovedScore = 0;
+    for(const p of surveyed){
+      const a = answersByProfile[p.id] || {};
+      r.ingredients.forEach(ing => {
+        const rating = a[ing];
+        if(rating == null) return;
+        if(rating <= 2) conflictSeverity += (3 - rating);
+        if(rating >= 4) lovedScore += (rating - 3);
+      });
+    }
+    return {...r, conflictSeverity, lovedScore};
+  });
+  const safe = scored.filter(s => s.conflictSeverity === 0).sort((a,b) => b.lovedScore - a.lovedScore);
+  const risky = scored.filter(s => s.conflictSeverity > 0).sort((a,b) => a.conflictSeverity - b.conflictSeverity || b.lovedScore - a.lovedScore);
+  return [...safe, ...risky];
+}
+
+function ratingTagFor(ingredients){
+  const surveyed = profiles.filter(p => surveyDone(p.id));
+  let loves = 0, hates = 0;
+  ingredients.forEach(ing => {
+    surveyed.forEach(p => {
+      const rating = (answersByProfile[p.id]||{})[ing];
+      if(rating == null) return;
+      if(rating <= 2) hates++;
+      if(rating >= 4) loves++;
+    });
+  });
+  return {loves, hates};
+}
+
+function renderResults(){
+  if(loadingResults){
+    return `
+      <button class="top-link" data-action="backCuisine">← Choose a different cuisine</button>
+      <div class="empty-state"><span class="big">👩‍🍳</span>Asking the recipe engine for ${selectedCuisine} dishes that fit your table…</div>
+    `;
+  }
+  if(resultsError){
+    return `
+      <button class="top-link" data-action="backCuisine">← Choose a different cuisine</button>
+      <div class="empty-state"><span class="big">⚠️</span>${escapeHtml(resultsError)}</div>
+      <div style="text-align:center;"><button class="btn" data-action="retryResults">Try Again</button></div>
+    `;
+  }
+  const matches = liveRecipes || [];
+  if(matches.length === 0){
+    return `
+      <button class="top-link" data-action="backCuisine">← Choose a different cuisine</button>
+      <div class="empty-state"><span class="big">🤷</span>No dishes came back for ${selectedCuisine}. Try again or pick another cuisine.</div>
+    `;
+  }
+  const showingLabel = usingFallback
+    ? `Showing ${matches.length} offline suggestions (couldn't reach the recipe engine)`
+    : `Showing ${matches.length} freshly generated ${selectedCuisine} matches`;
+  const cards = matches.map((recipe, idx) => {
+    const isOpen = expandedRecipe === idx;
+    const {loves, hates} = ratingTagFor(recipe.ingredients);
+    const tagClass = hates > 0 ? 'match-tag warn' : 'match-tag';
+    const tagText = hates > 0
+      ? `${hates} disliked ingredient${hates>1?'s':''}`
+      : `${loves} loved pick${loves!==1?'s':''}, zero complaints`;
+    if(!isOpen){
+      return `
+      <div class="recipe-card" data-action="openRecipe" data-idx="${idx}">
+        <span class="${tagClass}">${tagText}</span>
+        <h3>${escapeHtml(recipe.name)}</h3>
+        <div class="ing-preview">${escapeHtml(recipe.ingredients.join(', '))}</div>
+        <button class="btn small ghost">View Recipe</button>
+      </div>`;
+    }
+    const surveyed = profiles.filter(p => surveyDone(p.id));
+    const list = recipe.ingredients.map(ing => {
+      const dislikedBy = surveyed.filter(p => ((answersByProfile[p.id]||{})[ing] ?? null) !== null && (answersByProfile[p.id]||{})[ing] <= 2).map(p=>p.name);
+      const likedBy = surveyed.filter(p => ((answersByProfile[p.id]||{})[ing] ?? null) !== null && (answersByProfile[p.id]||{})[ing] >= 4).map(p=>p.name);
+      let cls = '';
+      let note = '';
+      if(dislikedBy.length){ cls='disliked'; note = ` — ${dislikedBy.join(', ')} not a fan`; }
+      else if(likedBy.length){ cls='liked'; note = ` — ${likedBy.join(', ')} loves this`; }
+      return `<li class="${cls}">${cls==='liked'?'✓':cls==='disliked'?'✕':'•'} ${escapeHtml(ing)}${note}</li>`;
+    }).join('');
+    const steps = recipe.steps.map(s => `<li>${escapeHtml(s)}</li>`).join('');
+    return `
+      <div class="recipe-card" data-action="closeRecipe" data-idx="${idx}">
+        <span class="${tagClass}">${tagText}</span>
+        <h3>${escapeHtml(recipe.name)}</h3>
+        ${recipe.description ? `<div class="muted" style="margin-bottom:8px;">${escapeHtml(recipe.description)}</div>` : ''}
+        <div class="muted" style="font-size:12px;margin-bottom:4px;">INGREDIENTS</div>
+        <ul class="detail-list">${list}</ul>
+        <div class="muted" style="font-size:12px;margin:10px 0 4px;">RECIPE</div>
+        <ol class="steps-list">${steps}</ol>
+        <button class="btn small ghost" style="margin-top:8px;">Close</button>
+      </div>`;
+  }).join('');
+
+  return `
+    <button class="top-link" data-action="backCuisine">← Choose a different cuisine</button>
+    <div class="muted" style="margin-bottom:10px;font-size:12px;">${showingLabel}</div>
+    <div class="recipe-grid">${cards}</div>
+    ${!usingFallback ? `<div style="text-align:center;margin-top:18px;"><button class="btn ghost" data-action="showMore">🔀 Show 6 More</button></div>` : ''}
+  `;
+}
+
+/* ============ EVENTS ============ */
+function attachHandlers(){
+  const app = $('#app');
+
+  app.querySelectorAll('[data-action="add"]').forEach(btn => btn.onclick = async () => {
+    const input = $('#newName');
+    const name = (input.value || '').trim();
+    if(!name) return;
+    const id = uid();
+    profiles.push({id, name});
+    answersByProfile[id] = {};
+    await saveProfiles();
+    surveyProfileId = id;
+    view = 'survey';
+    render();
+  });
+  const newNameInput = $('#newName');
+  if(newNameInput){
+    newNameInput.onkeydown = (e) => { if(e.key === 'Enter'){ app.querySelector('[data-action="add"]').click(); } };
+  }
+
+  app.querySelectorAll('[data-action="survey"]').forEach(btn => btn.onclick = () => {
+    surveyProfileId = btn.dataset.id;
+    view = 'survey';
+    render();
+  });
+
+  app.querySelectorAll('[data-action="delete"]').forEach(btn => btn.onclick = async () => {
+    const id = btn.dataset.id;
+    profiles = profiles.filter(p => p.id !== id);
+    delete answersByProfile[id];
+    await saveProfiles();
+    try{ await store.delete('answers:' + id); }catch(e){}
+    render();
+  });
+
+  const goCuisineBtn = app.querySelector('[data-action="goCuisine"]');
+  if(goCuisineBtn) goCuisineBtn.onclick = () => { view = 'cuisine'; render(); };
+
+  app.querySelectorAll('[data-action="backHome"]').forEach(btn => btn.onclick = () => { view = 'home'; render(); });
+  app.querySelectorAll('[data-action="backCuisine"]').forEach(btn => btn.onclick = () => { expandedRecipe = null; view = 'cuisine'; render(); });
+
+  app.querySelectorAll('.stamp-group').forEach(group => {
+    const ing = group.dataset.ing;
+    group.querySelectorAll('.stamp').forEach(stampBtn => {
+      stampBtn.onclick = async () => {
+        const ans = answersByProfile[surveyProfileId] || (answersByProfile[surveyProfileId] = {});
+        const rating = parseInt(stampBtn.dataset.rating, 10);
+        if(ans[ing] === rating){ delete ans[ing]; } // clicking the active rating again clears it
+        else { ans[ing] = rating; }
+        await saveAnswers(surveyProfileId);
+        render();
+      };
+    });
+  });
+
+  const finishBtn = app.querySelector('[data-action="finishSurvey"]');
+  if(finishBtn) finishBtn.onclick = () => { view = 'home'; render(); };
+
+  app.querySelectorAll('[data-action="pickCuisine"]').forEach(btn => btn.onclick = () => {
+    selectedCuisine = btn.dataset.cuisine;
+    expandedRecipe = null;
+    view = 'results';
+    render();
+    loadResultsFor(selectedCuisine, false);
+  });
+
+  const customCuisineBtn = app.querySelector('[data-action="pickCustomCuisine"]');
+  if(customCuisineBtn) customCuisineBtn.onclick = () => {
+    const input = $('#customCuisine');
+    const val = (input.value || '').trim();
+    if(!val) return;
+    selectedCuisine = val;
+    expandedRecipe = null;
+    view = 'results';
+    render();
+    loadResultsFor(selectedCuisine, false);
+  };
+  const customCuisineInput = $('#customCuisine');
+  if(customCuisineInput){
+    customCuisineInput.onkeydown = (e) => { if(e.key === 'Enter'){ app.querySelector('[data-action="pickCustomCuisine"]').click(); } };
+  }
+
+  const showMoreBtn = app.querySelector('[data-action="showMore"]');
+  if(showMoreBtn) showMoreBtn.onclick = () => {
+    expandedRecipe = null;
+    loadResultsFor(selectedCuisine, true);
+  };
+
+  const retryBtn = app.querySelector('[data-action="retryResults"]');
+  if(retryBtn) retryBtn.onclick = () => { loadResultsFor(selectedCuisine, false); };
+
+  app.querySelectorAll('[data-action="openRecipe"]').forEach(card => card.onclick = () => {
+    expandedRecipe = parseInt(card.dataset.idx, 10);
+    render();
+  });
+  app.querySelectorAll('[data-action="closeRecipe"]').forEach(card => card.onclick = (e) => {
+    expandedRecipe = null;
+    render();
+  });
+}
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeAttr(s){ return escapeHtml(s); }
+
+/* ============ INIT ============ */
+loadAll();
+</script>
+</body>
+</html>
