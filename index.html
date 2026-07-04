@@ -535,9 +535,14 @@ async function fetchLiveRecipes(cuisine, excludeNames){
   const budgetText = selectedBudget
     ? `- Every recipe's ingredient cost should be roughly "${selectedBudget}" or cheaper, where $ = budget-friendly/pantry staples, $$ = moderate, $$$ = splurge/specialty ingredients.`
     : '';
-  const prompt = `Generate 3 real, diverse ${cuisine} cuisine recipes suitable for a family meal, written like a real, explicit recipe you'd find in a cookbook — not a summary.
+  const prompt = `Find 2 real, diverse ${cuisine} dishes suitable for a family meal by searching the web, then write your own adapted version of each.
 Here are the eaters and how they rated ingredients on a 1-5 scale (1 = hate it, 5 = love it; anything not listed means no strong opinion):
 ${prefsText || 'No one has rated ingredients yet — suggest broadly crowd-pleasing options.'}
+
+Process for each dish:
+1. Search the web for a real recipe for a dish that could reasonably work for this group, preferring reputable, well-established cooking sites (e.g. Serious Eats, NYT Cooking, Bon Appétit, Food Network, Epicurious, America's Test Kitchen, Allrecipes, Bon Appetit, King Arthur Baking) over random blogs.
+2. Read that recipe for its real structure, technique, and realistic timing/temperatures — don't invent a technique from scratch when a real one exists.
+3. Write your OWN version in your own original words, adapted to this group: remove or substitute any ingredient anyone rated a 1, and minimize (don't necessarily remove) ingredients rated a 2. Never copy sentences or phrasing from the source — rewrite the method in your own words and adjust ingredient amounts for the servings below. Cite the source you used for each dish.
 
 Rules:
 - Every recipe must be scaled for exactly ${selectedServings} servings — ingredient amounts should reflect that serving count, not a generic default.
@@ -551,15 +556,17 @@ ${excludeText}
 - Each ingredient needs a specific, scaled amount and unit (e.g. "1.5 lbs", "2 cloves", "3/4 cup", "1 tsp") — never leave an ingredient's amount vague or blank. Keep the amount to quantity + unit only; prep notes like "diced" or "minced" belong in the steps, not appended to the amount.
 - Steps should be as many as the dish genuinely needs — a simple dish might be 4 steps, a multi-component braise or curry might be 7-8. Don't compress multiple real stages into one step just to hit a low count.
 - Every step must be explicit and actionable like a real recipe: state exact quantities/ingredients being added at that point, cook times in minutes, and stove heat or oven temperature (°F) wherever heat is involved. Avoid vague instructions like "cook until done" — say what to look for and roughly how long it takes.
+- Sequence steps in the order a cook would actually need to do them: if a later step needs a preheated oven, put the "preheat to X°F" instruction early enough (e.g. alongside an earlier prep or cooking step) that the oven is already at temperature by the time it's needed — never introduce "preheat the oven" in the same step where you immediately need it, and make sure timeMinutes accounts for any such wait.
 
-Respond with ONLY a JSON array (no markdown fences, no commentary before or after) of exactly 3 objects. Each object must have exactly these fields:
+Respond with ONLY a JSON array (no markdown fences, no commentary before or after) of exactly 2 objects. Each object must have exactly these fields:
 "name" (string),
 "description" (one short sentence),
 "servings" (integer, should equal ${selectedServings}),
 "ingredients" (array of objects, each with "name" — a plain ingredient name — and "amount" — a specific scaled quantity + unit string),
-"steps" (array of 4-8 short but explicit instruction strings, each with concrete quantities, times, and temperatures as described above),
-"timeMinutes" (integer, total realistic prep+cook time),
-"costLevel" (string, exactly one of "$", "$$", "$$$" representing approximate total ingredient cost for ${selectedServings} servings).`;
+"steps" (array of 4-8 short but explicit instruction strings, each with concrete quantities, times, and temperatures as described above, correctly sequenced as described above),
+"timeMinutes" (integer, total realistic prep+cook time, including any appliance preheat wait),
+"costLevel" (string, exactly one of "$", "$$", "$$$" representing approximate total ingredient cost for ${selectedServings} servings),
+"source" (object with "name" — the site/publication name — and "url" — a direct link to the reference recipe you found and adapted from).`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -567,7 +574,8 @@ Respond with ONLY a JSON array (no markdown fences, no commentary before or afte
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
       max_tokens: 1000,
-      messages: [{ role: "user", content: prompt }]
+      messages: [{ role: "user", content: prompt }],
+      tools: [{ type: "web_search_20250305", name: "web_search" }]
     })
   });
   if(!response.ok) throw new Error('API request failed: ' + response.status);
@@ -641,7 +649,7 @@ async function loadResultsFor(cuisine, append){
   resultsError = null;
   if(!append){ liveRecipes = []; shownRecipeNames = []; }
   render();
-  const targetCount = 3;
+  const targetCount = 2;
   try{
     let collected = [];
     let rejectedNames = [];
@@ -691,7 +699,7 @@ function renderResults(){
   if(loadingResults){
     return `
       <button class="top-link" data-action="backCuisine">← Choose a different cuisine</button>
-      <div class="empty-state"><span class="big">👩‍🍳</span>Asking the recipe engine for ${selectedCuisine} dishes that fit your table…</div>
+      <div class="empty-state"><span class="big">👩‍🍳</span>Searching for real ${selectedCuisine} recipes and adapting them for your table — this can take a bit longer than before…</div>
     `;
   }
   if(resultsError){
@@ -751,6 +759,9 @@ function renderResults(){
       return `<li class="${cls}">${cls==='liked'?'✓':cls==='disliked'?'✕':'•'} ${escapeHtml(display)}${note}</li>`;
     }).join('');
     const steps = recipe.steps.map(s => `<li>${escapeHtml(s)}</li>`).join('');
+    const sourceLine = (recipe.source && recipe.source.url)
+      ? `<div class="muted" style="font-size:12px;margin-top:10px;">Adapted from a recipe on <a href="${escapeHtml(recipe.source.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escapeHtml(recipe.source.name || 'the source site')}</a> ↗</div>`
+      : '';
     return `
       <div class="recipe-card" data-action="closeRecipe" data-idx="${idx}">
         <div class="badge-row"><span class="${tagClass}">${tagText}</span>${metaBadges}</div>
@@ -760,6 +771,7 @@ function renderResults(){
         <ul class="detail-list">${list}</ul>
         <div class="muted" style="font-size:12px;margin:10px 0 4px;">RECIPE</div>
         <ol class="steps-list">${steps}</ol>
+        ${sourceLine}
         <button class="btn small ghost" style="margin-top:8px;">Close</button>
       </div>`;
   }).join('');
@@ -768,7 +780,7 @@ function renderResults(){
     <button class="top-link" data-action="backCuisine">← Choose a different cuisine</button>
     <div class="muted" style="margin-bottom:10px;font-size:12px;">${showingLabel}</div>
     <div class="recipe-grid">${cards}</div>
-    <div style="text-align:center;margin-top:18px;"><button class="btn ghost" data-action="showMore">🔀 Show 3 More</button></div>
+    <div style="text-align:center;margin-top:18px;"><button class="btn ghost" data-action="showMore">🔀 Show 2 More</button></div>
   `;
 }
 
