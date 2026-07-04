@@ -260,6 +260,17 @@ const INGREDIENT_CATEGORIES = {
   "Pantry & Other": ["Soy Sauce","Coconut Milk","Olive Oil","Vinegar","Honey","Eggs"]
 };
 const ALL_INGREDIENTS = Object.values(INGREDIENT_CATEGORIES).flat();
+const INGREDIENT_LOOKUP = {};
+ALL_INGREDIENTS.forEach(name => { INGREDIENT_LOOKUP[name.toLowerCase()] = name; });
+function normalizeIngredient(name){
+  return INGREDIENT_LOOKUP[String(name).trim().toLowerCase()] || null;
+}
+function ratingForProfile(profileId, ingredientName){
+  const master = normalizeIngredient(ingredientName);
+  if(!master) return null; // not one of our tracked 100 ingredients — no rating to check
+  const rating = (answersByProfile[profileId] || {})[master];
+  return rating == null ? null : rating;
+}
 
 const CUISINE_META = {
   "Italian": "🍝", "Mexican": "🌮", "Indian": "🍛", "Chinese": "🥡",
@@ -1107,15 +1118,38 @@ function estimateFallbackMeta(recipe){
 }
 const COST_RANK = {"$":1, "$$":2, "$$$":3};
 
+function recipeHasHardConflict(recipe){
+  const surveyed = profiles.filter(p => surveyDone(p.id));
+  return recipe.ingredients.some(ing => surveyed.some(p => ratingForProfile(p.id, ing) === 1));
+}
+
 async function loadResultsFor(cuisine, append){
   loadingResults = true;
   resultsError = null;
   if(!append){ liveRecipes = []; shownRecipeNames = []; usingFallback = false; }
   render();
+  const targetCount = 6;
   try{
-    const batch = await fetchLiveRecipes(cuisine, shownRecipeNames);
-    liveRecipes = append ? liveRecipes.concat(batch) : batch;
-    shownRecipeNames = shownRecipeNames.concat(batch.map(r => r.name));
+    let collected = [];
+    let rejectedNames = [];
+    let attempts = 0;
+    const maxAttempts = 3; // cap retries so a stubborn model can't loop forever or run up calls
+    while(collected.length < targetCount && attempts < maxAttempts){
+      attempts++;
+      const excludeList = shownRecipeNames.concat(rejectedNames);
+      const batch = await fetchLiveRecipes(cuisine, excludeList);
+      for(const r of batch){
+        if(collected.length >= targetCount) break;
+        if(recipeHasHardConflict(r)){
+          rejectedNames.push(r.name); // silently discard — don't show, don't re-request the same one
+        } else {
+          collected.push(r);
+        }
+      }
+    }
+    if(collected.length === 0) throw new Error('No conflict-free recipes came back after ' + attempts + ' attempts');
+    liveRecipes = append ? liveRecipes.concat(collected) : collected;
+    shownRecipeNames = shownRecipeNames.concat(collected.map(r => r.name), rejectedNames);
     usingFallback = false;
   }catch(e){
     console.error('Live recipe fetch failed, falling back to offline set:', e);
@@ -1160,7 +1194,7 @@ function ratingTagFor(ingredients){
   let loves = 0, hates = 0;
   ingredients.forEach(ing => {
     surveyed.forEach(p => {
-      const rating = (answersByProfile[p.id]||{})[ing];
+      const rating = ratingForProfile(p.id, ing);
       if(rating == null) return;
       if(rating <= 2) hates++;
       if(rating >= 4) loves++;
@@ -1219,8 +1253,8 @@ function renderResults(){
     }
     const surveyed = profiles.filter(p => surveyDone(p.id));
     const list = recipe.ingredients.map(ing => {
-      const dislikedBy = surveyed.filter(p => ((answersByProfile[p.id]||{})[ing] ?? null) !== null && (answersByProfile[p.id]||{})[ing] <= 2).map(p=>p.name);
-      const likedBy = surveyed.filter(p => ((answersByProfile[p.id]||{})[ing] ?? null) !== null && (answersByProfile[p.id]||{})[ing] >= 4).map(p=>p.name);
+      const dislikedBy = surveyed.filter(p => ratingForProfile(p.id, ing) !== null && ratingForProfile(p.id, ing) <= 2).map(p=>p.name);
+      const likedBy = surveyed.filter(p => ratingForProfile(p.id, ing) !== null && ratingForProfile(p.id, ing) >= 4).map(p=>p.name);
       let cls = '';
       let note = '';
       if(dislikedBy.length){ cls='disliked'; note = ` — ${dislikedBy.join(', ')} not a fan`; }
