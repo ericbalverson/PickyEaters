@@ -663,15 +663,20 @@ function buildPreferenceSummary(){
   }).join('\n');
 }
 
-// Two different environments can run this same file:
+// Two different environments can run this same file, and they use two different providers:
 // 1. Inside a Claude.ai artifact — api.anthropic.com can be called directly with no key;
-//    Claude.ai's own infrastructure authenticates it invisibly. There's no "/api" route here.
+//    Claude.ai's own infrastructure authenticates it invisibly. There's no "/api" route here,
+//    so this path always uses Claude (with its own built-in web search) as a fallback.
 // 2. Self-hosted (e.g. on Vercel) — api.anthropic.com does NOT work from the browser (no
 //    credentials, blocked by CORS), so a same-origin serverless proxy at /api/generate-recipes
-//    holds a real API key server-side instead.
+//    handles it instead. That proxy currently calls Gemini (with Google Search grounding),
+//    holding a GEMINI_API_KEY server-side — see /api/generate-recipes.js.
+// Either way, the response gets normalized to the same { content: [{ type: "text", text }] }
+// shape before it reaches this function, so the rest of the app never needs to know which
+// provider actually answered.
 // We try the proxy first; a 404 means it doesn't exist on this deployment (or we're inside
-// Claude.ai), so we fall back to the direct artifact-authenticated call.
-async function callAnthropicMessages(prompt){
+// Claude.ai), so we fall back to the direct Claude call.
+async function callRecipeEngine(prompt){
   let proxyResponse = null;
   try{
     const r = await fetch('/api/generate-recipes', {
@@ -750,7 +755,7 @@ Respond with ONLY a JSON array (no markdown fences, no commentary before or afte
 "source" (object with "name" — the site/publication name — and "url" — a direct link to the reference recipe you found and adapted from),
 "omissions" (array, possibly empty, of objects each with "ingredient" — what was left out — "reason" — whose dislike caused it — and "suggestion" — 1-2 optional alternatives the cook could consider adding instead, phrased as a suggestion, not a replacement you made for them).`;
 
-  const data = await callAnthropicMessages(prompt);
+  const data = await callRecipeEngine(prompt);
   const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
   const clean = text.replace(/```json|```/g, '').trim();
   const parsed = JSON.parse(clean);
