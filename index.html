@@ -286,6 +286,25 @@
   .empty-state{ text-align:center; padding:30px 10px; color:var(--ink-soft); }
   .empty-state .big{ font-size:38px; display:block; margin-bottom:8px; }
   .top-link{ background:none; border:none; color:var(--navy); text-decoration:underline; font-size:13px; padding:0; margin-bottom:12px; display:inline-block; }
+  .spinner{
+    width:38px; height:38px; margin:0 auto 16px;
+    border:4px solid var(--paper-dark); border-top-color:var(--mustard);
+    border-radius:50%; animation:spin 0.9s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .loading-status{ font-size:12.5px; color:var(--ink-soft); margin-top:6px; }
+  .loading-bar-track{
+    width:220px; height:5px; margin:14px auto 0; border-radius:3px;
+    background:var(--paper-dark); overflow:hidden;
+  }
+  .loading-bar-fill{
+    width:40%; height:100%; background:var(--mustard); border-radius:3px;
+    animation:loading-slide 1.3s ease-in-out infinite;
+  }
+  @keyframes loading-slide{
+    0%{ transform:translateX(-100%); }
+    100%{ transform:translateX(340%); }
+  }
 </style>
 </head>
 <body>
@@ -772,22 +791,23 @@ function recipeHasHardConflict(recipe){
    sees something actionable instead of a raw error or (previously) a silent fallback. */
 function describeResultsError(e){
   const msg = (e && e.message) || String(e);
+  const freeTierNote = "This app runs on the free tier of the AI service doing the search and writing, which has usage caps — that's the most likely cause here, not a real problem with your request.";
   if(/Failed to fetch|NetworkError|network|ECONNREFUSED/i.test(msg)){
     return {
-      reason: "Couldn't reach the recipe engine — this usually means a lost or blocked internet connection.",
-      action: "Check your connection and try again."
+      reason: `Couldn't reach the recipe engine. ${freeTierNote}`,
+      action: "Just try again — it usually goes through on the next attempt or two."
     };
   }
   if(/API request failed: 429/.test(msg)){
     return {
-      reason: "The recipe engine is temporarily rate-limited (too many requests too quickly).",
-      action: "Wait about a minute, then try again."
+      reason: `The recipe engine hit a rate limit. ${freeTierNote}`,
+      action: "Just try again in a bit — free-tier caps like this reset quickly, and it usually goes through on retry."
     };
   }
   if(/API request failed: 5\d\d/.test(msg)){
     return {
-      reason: "The recipe engine had a server-side error on its end.",
-      action: "This is usually temporary — try again in a moment."
+      reason: `The recipe engine had a server-side error. ${freeTierNote}`,
+      action: "Just try again — this usually clears up on the next attempt."
     };
   }
   if(/API request failed: 401|API request failed: 403/.test(msg)){
@@ -798,14 +818,14 @@ function describeResultsError(e){
   }
   if(/API request failed: 4\d\d/.test(msg)){
     return {
-      reason: `The recipe engine rejected the request (${msg.replace('API request failed: ', 'HTTP ')}).`,
-      action: "Try again with a different cuisine or looser filters. If it keeps happening, let Eric know."
+      reason: `The recipe engine rejected the request (${msg.replace('API request failed: ', 'HTTP ')}). ${freeTierNote}`,
+      action: "Try again with a different cuisine or looser filters — if it keeps happening regardless, let Eric know."
     };
   }
   if(/Unexpected response shape|JSON/i.test(msg)){
     return {
-      reason: "The recipe engine's reply couldn't be read as valid recipe data.",
-      action: "This is usually a one-off — try again."
+      reason: `The recipe engine's reply couldn't be read as valid recipe data. ${freeTierNote}`,
+      action: "Just try again — this is usually a one-off."
     };
   }
   if(/No conflict-free recipes/.test(msg)){
@@ -815,8 +835,8 @@ function describeResultsError(e){
     };
   }
   return {
-    reason: "Something unexpected went wrong talking to the recipe engine.",
-    action: "Try again in a moment."
+    reason: `Something unexpected went wrong talking to the recipe engine. ${freeTierNote}`,
+    action: "Just try again — it usually works after a retry or two."
   };
 }
 
@@ -876,7 +896,12 @@ function renderResults(){
   if(loadingResults){
     return `
       <button class="top-link" data-action="backCuisine">← Choose a different cuisine</button>
-      <div class="empty-state"><span class="big">👩‍🍳</span>Searching for real ${selectedCuisine} recipes and adapting them for your table — this can take a bit longer than before…</div>
+      <div class="empty-state">
+        <div class="spinner"></div>
+        <div>Building AI prompt based on your preferences and parameters.</div>
+        <div class="loading-status">This may take some time — searching the web and writing up ${escapeHtml(selectedCuisine)} recipes for your table.</div>
+        <div class="loading-bar-track"><div class="loading-bar-fill"></div></div>
+      </div>
     `;
   }
   if(resultsError){
