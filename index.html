@@ -663,6 +663,46 @@ function buildPreferenceSummary(){
   }).join('\n');
 }
 
+// Two different environments can run this same file:
+// 1. Inside a Claude.ai artifact — api.anthropic.com can be called directly with no key;
+//    Claude.ai's own infrastructure authenticates it invisibly. There's no "/api" route here.
+// 2. Self-hosted (e.g. on Vercel) — api.anthropic.com does NOT work from the browser (no
+//    credentials, blocked by CORS), so a same-origin serverless proxy at /api/generate-recipes
+//    holds a real API key server-side instead.
+// We try the proxy first; a 404 means it doesn't exist on this deployment (or we're inside
+// Claude.ai), so we fall back to the direct artifact-authenticated call.
+async function callAnthropicMessages(prompt){
+  let proxyResponse = null;
+  try{
+    const r = await fetch('/api/generate-recipes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt })
+    });
+    if(r.status !== 404) proxyResponse = r; // route exists here — its result (success or error) is authoritative
+  }catch(e){
+    // no usable local route on this deployment — fall through to the direct call below
+  }
+
+  if(proxyResponse){
+    if(!proxyResponse.ok) throw new Error('API request failed: ' + proxyResponse.status);
+    return await proxyResponse.json();
+  }
+
+  const directResponse = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1000,
+      messages: [{ role: "user", content: prompt }],
+      tools: [{ type: "web_search_20250305", name: "web_search" }]
+    })
+  });
+  if(!directResponse.ok) throw new Error('API request failed: ' + directResponse.status);
+  return await directResponse.json();
+}
+
 async function fetchLiveRecipes(cuisine, excludeNames){
   const prefsText = buildPreferenceSummary();
   const excludeText = excludeNames.length
@@ -710,18 +750,7 @@ Respond with ONLY a JSON array (no markdown fences, no commentary before or afte
 "source" (object with "name" — the site/publication name — and "url" — a direct link to the reference recipe you found and adapted from),
 "omissions" (array, possibly empty, of objects each with "ingredient" — what was left out — "reason" — whose dislike caused it — and "suggestion" — 1-2 optional alternatives the cook could consider adding instead, phrased as a suggestion, not a replacement you made for them).`;
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1000,
-      messages: [{ role: "user", content: prompt }],
-      tools: [{ type: "web_search_20250305", name: "web_search" }]
-    })
-  });
-  if(!response.ok) throw new Error('API request failed: ' + response.status);
-  const data = await response.json();
+  const data = await callAnthropicMessages(prompt);
   const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
   const clean = text.replace(/```json|```/g, '').trim();
   const parsed = JSON.parse(clean);
