@@ -194,6 +194,50 @@
     display:inline-block; font-size:11px; font-weight:bold;
     background:var(--paper-dark); color:var(--ink); padding:2px 8px; border-radius:20px;
   }
+  .omission-box{
+    background:rgba(217,164,65,0.16); border:1px solid rgba(217,164,65,0.5);
+    border-radius:7px; padding:8px 10px; font-size:12.5px; margin-bottom:10px;
+  }
+  .save-warning{
+    background:rgba(193,68,46,0.14); border:1px solid rgba(193,68,46,0.5);
+    color:var(--tomato-dark); border-radius:8px; padding:10px 14px;
+    font-size:13px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; gap:10px;
+  }
+  .save-warning button{
+    background:none; border:none; color:var(--tomato-dark); font-weight:bold; font-size:14px; flex-shrink:0;
+  }
+  .omission-box div{ margin-bottom:4px; }
+  .omission-box div:last-child{ margin-bottom:0; }
+  .eater-checklist{ display:flex; flex-wrap:wrap; gap:8px; }
+  .eater-check{
+    display:flex; align-items:center; gap:6px;
+    background:#fff; border:2px solid var(--line); border-radius:20px;
+    padding:6px 12px; font-size:13px; cursor:pointer;
+  }
+  .eater-check input{ margin:0; }
+  .dislike-widget{
+    position:sticky; bottom:0; margin-top:20px;
+    background:var(--ink); color:var(--paper);
+    border-radius:10px; padding:10px 16px; box-shadow:var(--shadow);
+    font-size:13px;
+  }
+  .dislike-widget > button{
+    background:none; border:none; color:var(--mustard); font-weight:bold;
+    font-size:13px; padding:2px 0; width:100%; text-align:left;
+  }
+  .dislike-widget-body{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+  .dislike-widget-body select, .dislike-widget-body input{
+    padding:8px 10px; border-radius:6px; border:none; font-size:13px;
+  }
+  .dislike-widget-body input{ flex:1; min-width:140px; }
+  .dislike-tag-list{ margin-top:8px; display:flex; flex-wrap:wrap; gap:6px; }
+  .dislike-tag{
+    background:rgba(255,255,255,0.12); border-radius:14px; padding:3px 8px 3px 10px;
+    font-size:11.5px; display:flex; align-items:center; gap:6px;
+  }
+  .dislike-tag button{
+    background:none; border:none; color:var(--paper); opacity:0.7; font-size:12px; padding:0;
+  }
   .cuisine-tile{
     background:#fbf8ef; border:2px solid var(--line); border-radius:10px;
     padding:18px 10px; text-align:center; box-shadow:var(--shadow);
@@ -302,6 +346,10 @@ let shownRecipeNames = [];     // names already shown this session, so "more" do
 let selectedMaxTime = null;    // max cooking minutes, or null for "any"
 let selectedBudget = null;     // "$" | "$$" | "$$$" | null for "any"
 let selectedServings = 4;      // number of people the recipe should be scaled for
+let customDislikesByProfile = {}; // {profileId: ["free text dislike", ...]} — quick-add dislikes outside the 1-5 survey
+let selectedProfileIds = null;    // array of profile ids to consider for the current search; null = "everyone eligible"
+let dislikeWidgetOpen = false;
+let saveWarning = null; // set when a storage write fails even after retrying, so the person actually sees it
 
 const $ = (sel) => document.querySelector(sel);
 function uid(){ return 'p_' + Math.random().toString(36).slice(2,10); }
@@ -337,22 +385,42 @@ async function loadAll(){
     profiles = p ? JSON.parse(p.value) : [];
   }catch(e){ profiles = []; }
   answersByProfile = {};
+  customDislikesByProfile = {};
   for(const pr of profiles){
     try{
       const a = await store.get('answers:' + pr.id);
       answersByProfile[pr.id] = a ? JSON.parse(a.value) : {};
     }catch(e){ answersByProfile[pr.id] = {}; }
+    try{
+      const d = await store.get('customDislikes:' + pr.id);
+      customDislikesByProfile[pr.id] = d ? JSON.parse(d.value) : [];
+    }catch(e){ customDislikesByProfile[pr.id] = []; }
   }
   view = "home";
   render();
 }
+// Storage backends occasionally hiccup transiently (a momentary 500 from the storage
+// service, not a problem with the data itself) — retry once before treating it as a
+// real failure, and surface real failures visibly instead of only logging them.
+async function withRetry(fn){
+  try{ await fn(); return true; }
+  catch(e1){
+    await new Promise(r => setTimeout(r, 600));
+    try{ await fn(); return true; }
+    catch(e2){ console.error('save failed even after retry:', e2); return false; }
+  }
+}
 async function saveProfiles(){
-  try{ await store.set('profiles', JSON.stringify(profiles)); }
-  catch(e){ console.error('save profiles failed', e); }
+  const ok = await withRetry(() => store.set('profiles', JSON.stringify(profiles)));
+  saveWarning = ok ? null : "Couldn't save your profile changes. Your changes may not persist if you reload — check your connection and try again.";
 }
 async function saveAnswers(profileId){
-  try{ await store.set('answers:' + profileId, JSON.stringify(answersByProfile[profileId] || {})); }
-  catch(e){ console.error('save answers failed', e); }
+  const ok = await withRetry(() => store.set('answers:' + profileId, JSON.stringify(answersByProfile[profileId] || {})));
+  saveWarning = ok ? null : "Couldn't save that rating. It may not persist if you reload — check your connection and try again.";
+}
+async function saveCustomDislikes(profileId){
+  const ok = await withRetry(() => store.set('customDislikes:' + profileId, JSON.stringify(customDislikesByProfile[profileId] || [])));
+  saveWarning = ok ? null : "Couldn't save that dislike. It may not persist if you reload — check your connection and try again.";
 }
 
 /* ============ HELPERS ============ */
@@ -362,6 +430,29 @@ function surveyDone(profileId){
 }
 function anyProfileSurveyed(){
   return profiles.some(p => surveyDone(p.id));
+}
+function hasCustomDislikes(profileId){
+  return (customDislikesByProfile[profileId] || []).length > 0;
+}
+// A profile is worth considering in a recipe search once it has ratings, custom dislikes, or both.
+function eligibleProfileIds(){
+  return profiles.filter(p => surveyDone(p.id) || hasCustomDislikes(p.id)).map(p => p.id);
+}
+// The profiles actually in play for the current search — everyone eligible unless the person narrowed it down.
+function activeProfiles(){
+  const ids = selectedProfileIds !== null ? selectedProfileIds : eligibleProfileIds();
+  return profiles.filter(p => ids.includes(p.id));
+}
+function isCustomDislike(profileId, ingredientName){
+  const list = customDislikesByProfile[profileId] || [];
+  const ingLower = String(ingredientName).toLowerCase();
+  return list.some(c => {
+    const cLower = c.toLowerCase();
+    return ingLower.includes(cLower) || cLower.includes(ingLower);
+  });
+}
+function isHardDislike(profileId, ingredientName){
+  return ratingForProfile(profileId, ingredientName) === 1 || isCustomDislike(profileId, ingredientName);
 }
 
 /* ============ RENDER ============ */
@@ -384,9 +475,35 @@ function render(){
       </div>
       <div class="steps">${stepsHtml}</div>
     </div>
+    ${saveWarning ? `<div class="save-warning">⚠️ ${escapeHtml(saveWarning)} <button data-action="dismissSaveWarning">✕</button></div>` : ''}
     ${body}
+    ${view !== 'loading' ? renderDislikeWidget() : ''}
   `;
   attachHandlers();
+}
+
+function renderDislikeWidget(){
+  if(profiles.length === 0) return '';
+  const profileOptions = profiles.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+  const tagsForOpenProfile = dislikeWidgetOpen ? profiles.map(p => {
+    const custom = customDislikesByProfile[p.id] || [];
+    if(!custom.length) return '';
+    const tags = custom.map((c, i) => `<span class="dislike-tag">${escapeHtml(c)} <button data-action="removeDislike" data-profile-id="${p.id}" data-idx="${i}" title="Remove">✕</button></span>`).join('');
+    return `<div style="margin-top:6px;"><span class="muted" style="color:rgba(255,255,255,0.6);">${escapeHtml(p.name)}:</span> ${tags}</div>`;
+  }).join('') : '';
+  return `
+    <div class="dislike-widget">
+      <button data-action="toggleDislikeWidget">${dislikeWidgetOpen ? '− Add dislike to profile' : '+ Add dislike to profile'}</button>
+      ${dislikeWidgetOpen ? `
+        <div class="dislike-widget-body">
+          <select id="dislikeProfileSelect">${profileOptions}</select>
+          <input type="text" id="dislikeIngredientInput" placeholder="e.g. cilantro, blue cheese...">
+          <button class="btn avocado small" data-action="submitDislike">Add</button>
+        </div>
+        <div class="dislike-tag-list">${tagsForOpenProfile}</div>
+      ` : ''}
+    </div>
+  `;
 }
 
 function headerTitle(){
@@ -403,11 +520,13 @@ function headerTitle(){
 function renderHome(){
   const rows = profiles.map(p => {
     const done = surveyDone(p.id);
+    const customCount = (customDislikesByProfile[p.id] || []).length;
+    const customNote = customCount ? ` · ${customCount} quick dislike${customCount>1?'s':''}` : '';
     return `
     <div class="profile-row">
       <div>
         <div class="name">${escapeHtml(p.name)}</div>
-        <div class="status ${done?'done':''}">${done ? '✓ Survey complete' : 'Survey not started'}</div>
+        <div class="status ${done?'done':''}">${done ? '✓ Survey complete' : 'Survey not started'}${customNote}</div>
       </div>
       <div class="actions">
         <button class="btn ghost small" data-action="survey" data-id="${p.id}">${done?'Retake':'Start'} Survey</button>
@@ -416,7 +535,7 @@ function renderHome(){
     </div>`;
   }).join('') || `<div class="empty-state"><span class="big">🧑‍🍳</span>Add your first picky eater below to get started.</div>`;
 
-  const canSearch = anyProfileSurveyed();
+  const canSearch = eligibleProfileIds().length > 0;
 
   return `
     <div class="card">
@@ -483,11 +602,29 @@ function renderCuisine(){
     .map(([val,label]) => `<option value="${val}" ${selectedMaxTime==(val||null)?'selected':''}>${label}</option>`).join('');
   const budgetOptions = [["","Any"],["$","$ — Budget-friendly"],["$$","$$ — Moderate"],["$$$","$$$ — Splurge"]]
     .map(([val,label]) => `<option value="${val}" ${selectedBudget===(val||null)?'selected':''}>${label}</option>`).join('');
+  const eligible = profiles.filter(p => surveyDone(p.id) || hasCustomDislikes(p.id));
+  const activeIds = selectedProfileIds !== null ? selectedProfileIds : eligible.map(p => p.id);
+  const eaterSection = eligible.length
+    ? `
+      <div class="filter-field" style="margin-bottom:16px;">
+        <label>Who's eating tonight?</label>
+        <div class="eater-checklist">
+          ${eligible.map(p => `
+            <label class="eater-check">
+              <input type="checkbox" data-profile-id="${p.id}" ${activeIds.includes(p.id) ? 'checked' : ''}>
+              ${escapeHtml(p.name)}
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    `
+    : `<p class="muted">No profiles with ratings or dislikes yet — add one from the home screen first, and everyone will default to included.</p>`;
   return `
     <button class="top-link" data-action="backHome">← Back to profiles</button>
     <div class="card">
       <h2>What's for dinner?</h2>
-      <p class="muted">We'll hand every surveyed profile's ratings to our recipe engine and it'll write up dishes suited to the whole table.</p>
+      <p class="muted">We'll hand every selected profile's ratings to our recipe engine and it'll write up dishes suited to the table.</p>
+      ${eaterSection}
       <div class="filter-row">
         <div class="filter-field">
           <label>Servings</label>
@@ -515,12 +652,14 @@ function renderCuisine(){
 
 /* ---- Live recipe generation via Claude ---- */
 function buildPreferenceSummary(){
-  const surveyed = profiles.filter(p => surveyDone(p.id));
-  return surveyed.map(p => {
+  const included = activeProfiles();
+  return included.map(p => {
     const a = answersByProfile[p.id] || {};
     const loved = Object.entries(a).filter(([,v]) => v >= 4).map(([k,v]) => `${k} (${v}/5)`);
     const disliked = Object.entries(a).filter(([,v]) => v <= 2).map(([k,v]) => `${k} (${v}/5)`);
-    return `${p.name}: loves [${loved.join(', ') || 'nothing rated that high'}]; dislikes [${disliked.join(', ') || 'nothing rated that low'}]`;
+    const custom = customDislikesByProfile[p.id] || [];
+    const dislikedAll = disliked.concat(custom.map(c => `${c} (hard dislike, added directly)`));
+    return `${p.name}: loves [${loved.join(', ') || 'nothing rated that high'}]; dislikes [${dislikedAll.join(', ') || 'nothing rated that low'}]`;
   }).join('\n');
 }
 
@@ -536,20 +675,22 @@ async function fetchLiveRecipes(cuisine, excludeNames){
     ? `- Every recipe's ingredient cost should be roughly "${selectedBudget}" or cheaper, where $ = budget-friendly/pantry staples, $$ = moderate, $$$ = splurge/specialty ingredients.`
     : '';
   const prompt = `Find 2 real, diverse ${cuisine} dishes suitable for a family meal by searching the web, then write your own adapted version of each.
-Here are the eaters and how they rated ingredients on a 1-5 scale (1 = hate it, 5 = love it; anything not listed means no strong opinion):
+Here are the eaters and how they rated ingredients on a 1-5 scale (1 = hate it, 5 = love it; anything not listed means no strong opinion). Some dislikes were also added directly rather than through the survey — treat those exactly like a rating of 1.
 ${prefsText || 'No one has rated ingredients yet — suggest broadly crowd-pleasing options.'}
 
 Process for each dish:
 1. Search the web for a real recipe for a dish that could reasonably work for this group, preferring reputable, well-established cooking sites (e.g. Serious Eats, NYT Cooking, Bon Appétit, Food Network, Epicurious, America's Test Kitchen, Allrecipes, Bon Appetit, King Arthur Baking) over random blogs.
 2. Read that recipe for its real structure, technique, and realistic timing/temperatures — don't invent a technique from scratch when a real one exists.
-3. Write your OWN version in your own original words, adapted to this group: remove or substitute any ingredient anyone rated a 1, and minimize (don't necessarily remove) ingredients rated a 2. Never copy sentences or phrasing from the source — rewrite the method in your own words and adjust ingredient amounts for the servings below. Cite the source you used for each dish.
+3. Write your OWN version in your own original words, adapted to this group. Never copy sentences or phrasing from the source — rewrite the method in your own words and adjust ingredient amounts for the servings below. Cite the source you used for each dish.
 
 Rules:
 - Every recipe must be scaled for exactly ${selectedServings} servings — ingredient amounts should reflect that serving count, not a generic default.
-- Never include an ingredient any single person rated 1.
+- Never include an ingredient any single person rated 1 (or added as a direct dislike).
 - Try to avoid ingredients rated 2 unless the dish doesn't work without it.
 - Ingredients rated 3 or unrated are perfectly fine to include.
 - Prioritize recipes that include several ingredients people rated 4 or 5.
+- IMPORTANT — do not substitute: if an ingredient needs to be excluded because of a dislike, simply leave it out of the ingredient list and steps. Do NOT quietly swap in a different ingredient to fill its role. Instead, note the omission in the "omissions" field described below, along with 1-2 suggested alternatives the cook could optionally add themselves — the choice of substitute is theirs to make, not yours to bake into the recipe.
+- The eaters' ratings only cover a specific list of ~100 common ingredients used for the survey — that list has no bearing on what you're allowed to cook with. Use whatever real, ordinary ingredients the dish actually calls for (including pantry basics, dairy, herbs, etc. that aren't part of that tracked list). Never avoid or replace an ingredient just because it happens not to be one of the tracked ones — only omit something because a person actually dislikes it.
 ${timeText}
 ${budgetText}
 ${excludeText}
@@ -562,11 +703,12 @@ Respond with ONLY a JSON array (no markdown fences, no commentary before or afte
 "name" (string),
 "description" (one short sentence),
 "servings" (integer, should equal ${selectedServings}),
-"ingredients" (array of objects, each with "name" — a plain ingredient name — and "amount" — a specific scaled quantity + unit string),
+"ingredients" (array of objects, each with "name" — a plain ingredient name — and "amount" — a specific scaled quantity + unit string; this array should ONLY contain what's actually used in the recipe — no omitted ingredients listed here),
 "steps" (array of 4-8 short but explicit instruction strings, each with concrete quantities, times, and temperatures as described above, correctly sequenced as described above),
 "timeMinutes" (integer, total realistic prep+cook time, including any appliance preheat wait),
 "costLevel" (string, exactly one of "$", "$$", "$$$" representing approximate total ingredient cost for ${selectedServings} servings),
-"source" (object with "name" — the site/publication name — and "url" — a direct link to the reference recipe you found and adapted from).`;
+"source" (object with "name" — the site/publication name — and "url" — a direct link to the reference recipe you found and adapted from),
+"omissions" (array, possibly empty, of objects each with "ingredient" — what was left out — "reason" — whose dislike caused it — and "suggestion" — 1-2 optional alternatives the cook could consider adding instead, phrased as a suggestion, not a replacement you made for them).`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -588,8 +730,8 @@ Respond with ONLY a JSON array (no markdown fences, no commentary before or afte
 }
 
 function recipeHasHardConflict(recipe){
-  const surveyed = profiles.filter(p => surveyDone(p.id));
-  return recipe.ingredients.some(ing => surveyed.some(p => ratingForProfile(p.id, ingName(ing)) === 1));
+  const included = activeProfiles();
+  return recipe.ingredients.some(ing => included.some(p => isHardDislike(p.id, ingName(ing))));
 }
 
 /* Turn a thrown error into a plain-language reason + suggested next step, so the person
@@ -681,11 +823,12 @@ async function loadResultsFor(cuisine, append){
 }
 
 function ratingTagFor(ingredients){
-  const surveyed = profiles.filter(p => surveyDone(p.id));
+  const included = activeProfiles();
   let loves = 0, hates = 0;
   ingredients.forEach(ing => {
     const name = ingName(ing);
-    surveyed.forEach(p => {
+    included.forEach(p => {
+      if(isCustomDislike(p.id, name)){ hates++; return; }
       const rating = ratingForProfile(p.id, name);
       if(rating == null) return;
       if(rating <= 2) hates++;
@@ -746,12 +889,12 @@ function renderResults(){
         <button class="btn small ghost">View Recipe</button>
       </div>`;
     }
-    const surveyed = profiles.filter(p => surveyDone(p.id));
+    const included = activeProfiles();
     const list = recipe.ingredients.map(ing => {
       const name = ingName(ing);
       const display = ingDisplay(ing);
-      const dislikedBy = surveyed.filter(p => ratingForProfile(p.id, name) !== null && ratingForProfile(p.id, name) <= 2).map(p=>p.name);
-      const likedBy = surveyed.filter(p => ratingForProfile(p.id, name) !== null && ratingForProfile(p.id, name) >= 4).map(p=>p.name);
+      const dislikedBy = included.filter(p => isHardDislike(p.id, name) || (ratingForProfile(p.id, name) !== null && ratingForProfile(p.id, name) <= 2)).map(p=>p.name);
+      const likedBy = included.filter(p => ratingForProfile(p.id, name) !== null && ratingForProfile(p.id, name) >= 4).map(p=>p.name);
       let cls = '';
       let note = '';
       if(dislikedBy.length){ cls='disliked'; note = ` — ${dislikedBy.join(', ')} not a fan`; }
@@ -762,11 +905,16 @@ function renderResults(){
     const sourceLine = (recipe.source && recipe.source.url)
       ? `<div class="muted" style="font-size:12px;margin-top:10px;">Adapted from a recipe on <a href="${escapeHtml(recipe.source.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escapeHtml(recipe.source.name || 'the source site')}</a> ↗</div>`
       : '';
+    const omissions = Array.isArray(recipe.omissions) ? recipe.omissions : [];
+    const omissionsBox = omissions.length
+      ? `<div class="omission-box">${omissions.map(o => `<div>⚠️ <strong>${escapeHtml(o.ingredient||'An ingredient')} left out</strong>${o.reason ? ` — ${escapeHtml(o.reason)}` : ''}.${o.suggestion ? ` Consider: ${escapeHtml(o.suggestion)}` : ''}</div>`).join('')}</div>`
+      : '';
     return `
       <div class="recipe-card" data-action="closeRecipe" data-idx="${idx}">
         <div class="badge-row"><span class="${tagClass}">${tagText}</span>${metaBadges}</div>
         <h3>${escapeHtml(recipe.name)}</h3>
         ${recipe.description ? `<div class="muted" style="margin-bottom:8px;">${escapeHtml(recipe.description)}</div>` : ''}
+        ${omissionsBox}
         <div class="muted" style="font-size:12px;margin-bottom:4px;">INGREDIENTS</div>
         <ul class="detail-list">${list}</ul>
         <div class="muted" style="font-size:12px;margin:10px 0 4px;">RECIPE</div>
@@ -788,6 +936,9 @@ function renderResults(){
 function attachHandlers(){
   const app = $('#app');
 
+  const dismissWarningBtn = app.querySelector('[data-action="dismissSaveWarning"]');
+  if(dismissWarningBtn) dismissWarningBtn.onclick = () => { saveWarning = null; render(); };
+
   app.querySelectorAll('[data-action="add"]').forEach(btn => btn.onclick = async () => {
     const input = $('#newName');
     const name = (input.value || '').trim();
@@ -795,6 +946,7 @@ function attachHandlers(){
     const id = uid();
     profiles.push({id, name});
     answersByProfile[id] = {};
+    customDislikesByProfile[id] = [];
     await saveProfiles();
     surveyProfileId = id;
     view = 'survey';
@@ -815,8 +967,11 @@ function attachHandlers(){
     const id = btn.dataset.id;
     profiles = profiles.filter(p => p.id !== id);
     delete answersByProfile[id];
+    delete customDislikesByProfile[id];
+    if(selectedProfileIds !== null) selectedProfileIds = selectedProfileIds.filter(x => x !== id);
     await saveProfiles();
     try{ await store.delete('answers:' + id); }catch(e){}
+    try{ await store.delete('customDislikes:' + id); }catch(e){}
     render();
   });
 
@@ -850,6 +1005,10 @@ function attachHandlers(){
     selectedServings = servingsSel && servingsSel.value ? parseInt(servingsSel.value, 10) : 4;
     selectedMaxTime = timeSel && timeSel.value ? parseInt(timeSel.value, 10) : null;
     selectedBudget = budgetSel && budgetSel.value ? budgetSel.value : null;
+    const eaterCheckboxes = app.querySelectorAll('.eater-checklist input[type="checkbox"]');
+    if(eaterCheckboxes.length){
+      selectedProfileIds = [...eaterCheckboxes].filter(cb => cb.checked).map(cb => cb.dataset.profileId);
+    }
   }
 
   app.querySelectorAll('[data-action="pickCuisine"]').forEach(btn => btn.onclick = () => {
@@ -895,6 +1054,53 @@ function attachHandlers(){
     expandedRecipe = null;
     render();
   });
+
+  const toggleDislikeBtn = app.querySelector('[data-action="toggleDislikeWidget"]');
+  if(toggleDislikeBtn) toggleDislikeBtn.onclick = () => {
+    dislikeWidgetOpen = !dislikeWidgetOpen;
+    render();
+  };
+
+  const submitDislikeBtn = app.querySelector('[data-action="submitDislike"]');
+  if(submitDislikeBtn) submitDislikeBtn.onclick = async () => {
+    const profileSel = $('#dislikeProfileSelect');
+    const ingredientInput = $('#dislikeIngredientInput');
+    const profileId = profileSel && profileSel.value;
+    const text = (ingredientInput && ingredientInput.value || '').trim();
+    if(!profileId || !text) return;
+    await addDislike(profileId, text);
+    render();
+  };
+  const dislikeIngredientInput = $('#dislikeIngredientInput');
+  if(dislikeIngredientInput){
+    dislikeIngredientInput.onkeydown = (e) => { if(e.key === 'Enter'){ app.querySelector('[data-action="submitDislike"]').click(); } };
+  }
+
+  app.querySelectorAll('[data-action="removeDislike"]').forEach(btn => btn.onclick = async () => {
+    const profileId = btn.dataset.profileId;
+    const idx = parseInt(btn.dataset.idx, 10);
+    const list = customDislikesByProfile[profileId] || [];
+    list.splice(idx, 1);
+    await saveCustomDislikes(profileId);
+    render();
+  });
+}
+
+// Free-text dislike: if it matches one of the 100 tracked ingredients, just set its rating to a hard 1.
+// Otherwise, store it as a standalone custom dislike tied to the profile.
+async function addDislike(profileId, text){
+  const master = normalizeIngredient(text);
+  if(master){
+    const ans = answersByProfile[profileId] || (answersByProfile[profileId] = {});
+    ans[master] = 1;
+    await saveAnswers(profileId);
+  } else {
+    const list = customDislikesByProfile[profileId] || (customDislikesByProfile[profileId] = []);
+    if(!list.some(x => x.toLowerCase() === text.toLowerCase())){
+      list.push(text);
+      await saveCustomDislikes(profileId);
+    }
+  }
 }
 
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
